@@ -19,7 +19,7 @@
     window.AUCTION_DATA = JSON.parse(text);
     document.getElementById('gate')?.remove();
     const s = document.createElement('script');
-    s.src = 'app.js?v=' + E.kid;
+    s.src = 'app.js?v=' + (window.SITE_VER || E.kid);
     document.body.appendChild(s);
     addLogout();
   }
