@@ -168,7 +168,7 @@
 
   function priceHtml(l) {
     if (l.category === 'damaged') return '<div></div>';
-    return l.usd ? `<div class="price">$${fmt(l.usd)}<small>₩${fmt(l.priceKRW)}</small></div>`
+    return l.usd ? `<div class="price">$${fmt(l.usd)}<small>стартовая цена</small></div>`
       : `<div class="price" style="font-size:14px;color:var(--muted)">без стартовой цены<small>${l.source === "autohub_pub" ? "ставки вслепую (공매)" : "&nbsp;"}</small></div>`;
   }
 
@@ -380,8 +380,8 @@
           <h2 class="m-title">${esc(title(l))}</h2>
           <div class="m-sub">${esc(l.grade || '')}</div>
           <div class="tags">${(l.condition || []).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
-          ${l.category === 'damaged' ? '' : `<div class="m-price">${l.usd ? `<b>$${fmt(l.usd)}</b><span>₩${fmt(l.priceKRW)}</span>` : `<span>без стартовой цены${l.source === 'autohub_pub' ? ' — закрытые торги, ставки вслепую' : ''}</span>`}</div>`}
-          ${l.feeKRW ? `<p class="hint">+ комиссия аукциона ₩${fmt(l.feeKRW)} ($${fmt(Math.round(l.feeKRW / RATE))})</p>` : ''}
+          ${l.category === 'damaged' ? '' : `<div class="m-price">${l.usd ? `<b>$${fmt(l.usd)}</b><span>стартовая цена</span>` : `<span>без стартовой цены${l.source === 'autohub_pub' ? ' — закрытые торги, ставки вслепую' : ''}</span>`}</div>`}
+          ${l.feeKRW ? `<p class="hint">+ комиссия аукциона $${fmt(Math.round(l.feeKRW / RATE))}</p>` : ''}
           <dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
           ${l.alsoOn?.length ? `<p class="hint" style="margin-top:12px">Этот же автомобиль на других аукционах: ${l.alsoOn.map(a => `<b>${esc(DATA.sources[a.source]?.name || a.source)}</b>${a.lotNo ? ' (лот ' + esc(a.lotNo) + ')' : ''}`).join(', ')}</p>` : ''}
           <div class="m-actions">
