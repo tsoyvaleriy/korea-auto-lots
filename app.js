@@ -119,7 +119,7 @@
     $('#fModel').innerHTML = '<option value="">Все модели</option>' + (state.make ? Object.keys(md).sort()
       .map(m => `<option value="${esc(m)}" ${m === state.model ? 'selected' : ''}>${esc(m)} (${md[m]})</option>`).join('') : '');
 
-    const minY = DATA.minYear || 2021, maxY = new Date().getFullYear() + 1;
+    const minY = DATA.minYear || 2016, maxY = new Date().getFullYear() + 1;
     const yo = sel => '<option value="">' + (sel ? 'до' : 'от') + '</option>' + Array.from({ length: maxY - minY + 1 }, (_, i) => minY + i).map(y => `<option>${y}</option>`).join('');
     $('#fYearFrom').innerHTML = yo(0); $('#fYearFrom').value = state.yFrom;
     $('#fYearTo').innerHTML = yo(1); $('#fYearTo').value = state.yTo;
@@ -465,7 +465,7 @@
   // ------------------------------------------------------------ шапка/подвал
   $('#foot').innerHTML = 'Данные обновлены: ' + Object.values(DATA.sources).map(s =>
     `${esc(s.name)} — ${s.updated ? new Date(s.updated).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'нет'}${s.count != null ? ` (${s.count})` : ''}${s.error ? ' ⚠' : ''}`).join(' · ')
-    + ` · только авто от ${DATA.minYear || 2021} г.`;
+    + ` · только авто от ${DATA.minYear || 2016} г.`;
 
   updateCounts();
   render();
