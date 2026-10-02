@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Korea Auto Lots</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">Korea<b>Auto</b>Lots</div>
+  <nav class="tabs" id="tabs">
+    <button data-tab="whole" class="active">Целые <span></span></button>
+    <button data-tab="damaged">Битые <span></span></button>
+    <button data-tab="wish">♥ Избранное <span></span></button>
+  </nav>
+</header>
+
+<div class="layout">
+  <aside class="filters" id="filters">
+    <div class="f-head">
+      <h3>Фильтры</h3>
+      <button class="link" id="reset">Сбросить</button>
+    </div>
+    <input id="q" type="search" placeholder="Марка, модель, № лота, VIN…">
+
+    <div class="f-group"><label>Аукцион</label><div id="fSource" class="chips"></div></div>
+    <div class="f-group"><label>Марка</label><select id="fMake"><option value="">Все марки</option></select></div>
+    <div class="f-group"><label>Модель</label><select id="fModel"><option value="">Все модели</option></select></div>
+    <div class="f-group"><label>Год</label>
+      <div class="range"><select id="fYearFrom"></select><span>—</span><select id="fYearTo"></select></div></div>
+    <div class="f-group" id="gPrice"><label>Стартовая цена, $</label>
+      <div class="range"><input id="fPriceFrom" type="number" min="0" step="500" placeholder="от"><span>—</span><input id="fPriceTo" type="number" min="0" step="500" placeholder="до"></div></div>
+    <div class="f-group"><label>Пробег до, км</label>
+      <input id="fMileage" type="range" min="0" max="200000" step="5000" value="200000"><div class="hint" id="fMileageLbl"></div></div>
+    <div class="f-group"><label>Топливо</label><div id="fFuel" class="chips"></div></div>
+    <div class="f-group"><label>КПП</label><div id="fTm" class="chips"></div></div>
+    <div class="f-group"><label>Состояние</label>
+      <label class="check"><input type="checkbox" id="fSheet"> Есть лист осмотра</label>
+      <label class="check"><input type="checkbox" id="fNoReplace"> Без замен деталей</label>
+      <label class="check"><input type="checkbox" id="fPrice"> Только с ценой</label>
+      <label class="check"><input type="checkbox" id="fActive" checked> Скрыть завершённые торги</label>
+    </div>
+  </aside>
+
+  <main>
+    <div class="toolbar">
+      <button class="btn-filters" id="openFilters">Фильтры</button>
+      <div id="count" class="count"></div>
+      <div id="activeChips" class="active-chips"></div>
+      <select id="sort">
+        <option value="ends">Скоро завершатся</option>
+        <option value="priceAsc">Цена ↑</option>
+        <option value="priceDesc">Цена ↓</option>
+        <option value="yearDesc">Год: новее</option>
+        <option value="mileageAsc">Пробег ↑</option>
+      </select>
+    </div>
+    <div id="grid" class="grid"></div>
+    <div id="empty" class="empty" hidden></div>
+    <button id="more" class="more" hidden>Показать ещё</button>
+  </main>
+</div>
+
+<div id="modal" class="modal" hidden>
+  <div class="modal-bg" data-close></div>
+  <article class="modal-box" id="modalBox"></article>
+</div>
+
+<footer class="foot" id="foot"></footer>
+
+<script src="data/lots.enc.js"></script>
+<script src="gate.js"></script>
+</body>
+</html>
