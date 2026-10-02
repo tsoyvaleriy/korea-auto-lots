@@ -1,5 +1,7 @@
-(function () {
-  const DATA = window.AUCTION_DATA || { lots: [], sources: {}, rate: { usd: 1325, base: 1350, discount: 25 } };
+// Каталог лотов. Запускается из portal.js после входа (данные из базы) или сразу — в локальной версии с data/lots.js.
+window.startCatalog = function (DATA, P) {
+  P = P || {};
+  DATA = DATA || { lots: [], sources: {}, rate: { usd: 1325, base: 1350, discount: 25 } };
   const RATE = DATA.rate.usd;
   const LOTS = DATA.lots.map(l => l.category === 'damaged' ? { ...l, priceKRW: null, feeKRW: null, usd: null }
     : { ...l, usd: l.priceKRW ? Math.round(l.priceKRW / RATE) : null });
@@ -20,7 +22,7 @@
 
   // ------------------------------------------------------------ избранное
   // Храним снимок лота, чтобы он оставался виден и после окончания торгов.
-  let wish = store.get('wish', {});
+  let wish = P.favs || store.get('wish', {});
   const isWish = id => !!wish[id];
   function toggleWish(id) {
     if (wish[id]) delete wish[id];
@@ -29,6 +31,7 @@
       wish[id] = { added: Date.now(), note: '', snap: { id: l.id, source: l.source, category: l.category, make: l.make, model: l.model, year: l.year, mileage: l.mileage, priceKRW: l.priceKRW, photos: (l.photos || []).slice(0, 1), url: l.url, endsAt: l.endsAt, lotNo: l.lotNo } };
     }
     store.set('wish', wish);
+    P.favToggle?.(id, wish[id]);
     document.querySelectorAll(`[data-heart="${CSS.escape(id)}"]`).forEach(b => { b.classList.toggle('on', isWish(id)); b.textContent = isWish(id) ? '♥' : '♡'; });
     updateCounts();
     if (state.tab === 'wish') render();
@@ -51,8 +54,8 @@
   // ------------------------------------------------------------ фильтрация
   const now = Date.now();
   const ended = l => !l.negotiable && l.endsAt && new Date(l.endsAt).getTime() < now - 3600e3;
-  const replaced = l => (l.inspection?.marks?.['Заменено'] || []).length > 0;
-  const hasSheet = l => !!(l.inspection && (Object.keys(l.inspection.panels || {}).length || l.inspection.items?.length || l.inspection.grades?.length || l.inspection.sheetImages?.length || l.inspection.sheetUrl || Object.keys(l.inspection.marks || {}).length));
+  const replaced = l => l.replaced ?? (l.inspection?.marks?.['Заменено'] || []).length > 0;
+  const hasSheet = l => l.hasSheet ?? !!(l.inspection && (Object.keys(l.inspection.panels || {}).length || l.inspection.items?.length || l.inspection.grades?.length || l.inspection.sheetImages?.length || l.inspection.sheetUrl || Object.keys(l.inspection.marks || {}).length));
   const title = l => `${l.make !== 'Other' ? l.make + ' ' : ''}${l.model}`.trim();
 
   function baseSet() { return LOTS.filter(l => l.category === state.tab); }
@@ -137,6 +140,19 @@
     $('#q').value = state.q; $('#sort').value = state.sort;
   }
 
+  // короткое описание текущих фильтров — для названия сохранённого поиска
+  function describe() {
+    const p = [];
+    if (state.make) p.push(state.make + (state.model ? ' ' + state.model : ''));
+    if (state.yFrom || state.yTo) p.push(`${state.yFrom || '…'}–${state.yTo || '…'} г.`);
+    if (state.pFrom || state.pTo) p.push(`$${state.pFrom || 0}–${state.pTo || '∞'}`);
+    if (state.km < 200000) p.push(`≤${fmt(+state.km)} км`);
+    state.fuel.forEach(f => p.push(FUEL[f]));
+    if (state.noRepl) p.push('без замен');
+    if (state.q) p.push(`«${state.q}»`);
+    return (state.tab === 'damaged' ? 'Битые: ' : 'Целые: ') + (p.join(', ') || 'все');
+  }
+
   function activeChips() {
     const out = [];
     const add = (label, reset) => out.push([label, reset]);
@@ -183,7 +199,8 @@
           ${l.aucGrade ? `<span class="badge grade">${esc(l.aucGrade)}</span>` : ''}${hasSheet(l) ? '<span class="badge sheet">лист осмотра</span>' : ''}
           ${l.alsoOn?.length ? `<span class="badge">+${l.alsoOn.length} аукц.</span>` : ''}</div>
         <button class="heart ${isWish(l.id) ? 'on' : ''}" data-heart="${esc(l.id)}" title="В избранное">${isWish(l.id) ? '♥' : '♡'}</button>
-        ${l.photos?.length > 1 ? `<span class="photos-n">📷 ${l.photos.length}</span>` : ''}
+        ${(l.photoCount ?? l.photos?.length) > 1 ? `<span class="photos-n">📷 ${l.photoCount ?? l.photos.length}</span>` : ''}
+        ${P.myBid?.(l.id) ? `<span class="my-bid">моя ставка $${fmt(P.myBid(l.id))}</span>` : ''}
       </div>
       <div class="body">
         <div class="title"><span class="t">${esc(title(l))}</span><small>${[l.grade, l.lotNo && 'лот ' + l.lotNo].filter(Boolean).map(esc).join(' · ')}</small></div>
@@ -218,15 +235,23 @@
       const t = ids.map(id => { const l = BY_ID[id] || wish[id].snap; return `${title(l)} ${l.year || ''}, ${l.mileage ? fmt(l.mileage) + ' км' : ''}, ${l.priceKRW ? '$' + fmt(Math.round(l.priceKRW / RATE)) : ''} — ${l.url}${wish[id].note ? ' (' + wish[id].note + ')' : ''}`; }).join('\n');
       navigator.clipboard?.writeText(t).then(() => { $('#wishCopy').textContent = 'Скопировано ✓'; });
     };
-    $('#wishClear').onclick = () => { if (confirm('Очистить избранное?')) { wish = {}; store.set('wish', wish); updateCounts(); render(); } };
+    $('#wishClear').onclick = () => { if (confirm('Очистить избранное?')) { Object.keys(wish).forEach(id => P.favToggle?.(id, null)); wish = {}; store.set('wish', wish); updateCounts(); render(); } };
   }
 
   // ------------------------------------------------------------ рендер
   function render() {
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === state.tab));
-    $('#filters').style.visibility = state.tab === 'wish' ? 'hidden' : '';
-    $('#sort').style.display = state.tab === 'wish' ? 'none' : '';
+    $('#filters').style.visibility = ['wish', 'bids', 'admin'].includes(state.tab) ? 'hidden' : '';
+    $('#sort').style.display = ['wish', 'bids', 'admin'].includes(state.tab) ? 'none' : '';
     if (state.tab === 'wish') return renderWish();
+    const portalTab = ['bids', 'admin'].includes(state.tab);
+    $('#filters').style.visibility = portalTab ? 'hidden' : $('#filters').style.visibility;
+    $('#sort').style.display = portalTab ? 'none' : $('#sort').style.display;
+    if (portalTab) {
+      $('#activeChips').innerHTML = ''; $('#more').hidden = true; $('#empty').hidden = true;
+      $('#grid').className = 'portal';
+      return state.tab === 'bids' ? P.renderBids?.($('#grid'), $('#count')) : P.renderAdmin?.($('#grid'), $('#count'));
+    }
     $('#grid').className = 'grid';
     buildFilters();
     activeChips();
@@ -249,8 +274,9 @@
   function updateCounts() {
     const c = { whole: 0, damaged: 0 };
     LOTS.forEach(l => { if (!ended(l)) c[l.category]++; });
-    const sp = document.querySelectorAll('#tabs button span');
-    sp[0].textContent = c.whole; sp[1].textContent = c.damaged; sp[2].textContent = Object.keys(wish).length;
+    const sp = t => document.querySelector(`#tabs [data-tab="${t}"] span`) || {};
+    sp('whole').textContent = c.whole; sp('damaged').textContent = c.damaged; sp('wish').textContent = Object.keys(wish).length;
+    sp('bids').textContent = P.activeBidsCount?.() || '';
   }
 
   // ------------------------------------------------------------ схема кузова
@@ -356,8 +382,15 @@
     return h || '<p class="hint">Лист осмотра пуст.</p>';
   }
 
-  function openLot(id) {
-    const l = BY_ID[id]; if (!l) return;
+  async function openLot(id, snapshot) {
+    let l = BY_ID[id] || snapshot; if (!l) return;
+    if (P.fetchFull && !l._full) {
+      const full = await P.fetchFull(id).catch(() => null);
+      if (full) {
+        l = Object.assign(BY_ID[id] || {}, full, { _full: true, usd: l.usd, priceKRW: l.priceKRW });
+        if (!BY_ID[id]) l = { ...l, usd: l.category === 'damaged' ? null : (l.priceKRW ? Math.round(l.priceKRW / RATE) : null) };
+      }
+    }
     const photos = l.photos?.length ? l.photos : [];
     let i = 0;
     const rows = [
@@ -384,8 +417,9 @@
           ${l.feeKRW ? `<p class="hint">+ комиссия аукциона $${fmt(Math.round(l.feeKRW / RATE))}</p>` : ''}
           <dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
           ${l.alsoOn?.length ? `<p class="hint" style="margin-top:12px">Этот же автомобиль на других аукционах: ${l.alsoOn.map(a => `<b>${esc(DATA.sources[a.source]?.name || a.source)}</b>${a.lotNo ? ' (лот ' + esc(a.lotNo) + ')' : ''}`).join(', ')}</p>` : ''}
+          <div id="bidBox"></div>
           <div class="m-actions">
-            <button class="btn ${isWish(l.id) ? '' : 'primary'}" id="mWish">${isWish(l.id) ? '♥ В избранном' : '♡ В избранное'}</button>
+            <button class="btn ${isWish(l.id) ? '' : 'primary'}" id="mWish" ${BY_ID[l.id] ? '' : 'hidden'}>${isWish(l.id) ? '♥ В избранном' : '♡ В избранное'}</button>
           </div>
         </div>
       </div>
@@ -395,9 +429,13 @@
         ${l.notesOther ? `<div class="group-title">Описание на ${esc(DATA.sources[l.notesOtherSrc]?.name || '')}</div><div class="notes">${esc(ru(l, 'notesOther'))}</div>${orig(l, 'notesOther')}` : ''}
         <h3>Аукционный лист / состояние</h3>
         ${sheetHtml(l)}
+        <div id="salesBox"></div>
       </div>`;
     $('#modal').hidden = false;
     document.body.style.overflow = 'hidden';
+    P.bidPanel?.($('#bidBox'), l);
+    P.afterModal?.($('#modalBox'));
+    Promise.resolve(P.salesPanel?.($('#salesBox'), l)).then(() => P.afterModal?.($('#salesBox')));
     const show = k => {
       i = (k + photos.length) % photos.length;
       $('#gMain').src = photos[i];
@@ -408,6 +446,7 @@
       if (e.target.closest('.prev')) show(i - 1);
       else if (e.target.closest('.next')) show(i + 1);
       else if (e.target.dataset.k) show(+e.target.dataset.k);
+      else if (e.target.id === 'gMain') e.target.parentElement.classList.toggle('full');
       else if (e.target.id === 'mWish') { toggleWish(l.id); e.target.textContent = isWish(l.id) ? '♥ В избранном' : '♡ В избранное'; e.target.classList.toggle('primary', !isWish(l.id)); }
     };
     $('#modal').keyNav = e => { if (e.key === 'ArrowLeft' && photos.length) show(i - 1); if (e.key === 'ArrowRight' && photos.length) show(i + 1); };
@@ -438,6 +477,10 @@
   $('#fActive').onchange = e => { state.active = e.target.checked; changed(); };
   $('#sort').onchange = e => { state.sort = e.target.value; changed(); };
   $('#reset').onclick = () => { state = { ...DEF, tab: state.tab }; changed(); };
+  if ($('#saveSearch')) {
+    $('#saveSearch').hidden = !P.saveSearch;
+    $('#saveSearch').onclick = () => P.saveSearch?.({ ...state }, filtered().map(l => l.id), describe());
+  }
   $('#more').onclick = () => { shown += PAGE; render(); };
   $('#openFilters').onclick = () => $('#filters').classList.add('open');
   const done = document.createElement('button');
@@ -455,11 +498,12 @@
     if (c && !e.target.closest('input') && BY_ID[c.dataset.id]) openLot(c.dataset.id);
   });
   document.addEventListener('change', e => {
-    if (e.target.dataset.note) { wish[e.target.dataset.note].note = e.target.value; store.set('wish', wish); }
+    if (e.target.dataset.note) { wish[e.target.dataset.note].note = e.target.value; store.set('wish', wish); P.favNote?.(e.target.dataset.note, e.target.value); }
   });
   document.addEventListener('keydown', e => {
     if ($('#modal').hidden) return;
-    if (e.key === 'Escape') closeModal(); else $('#modal').keyNav?.(e);
+    if (e.key === 'Escape') { const f = document.querySelector('.gallery .main.full'); if (f) f.classList.remove('full'); else closeModal(); }
+    else $('#modal').keyNav?.(e);
   });
 
   // ------------------------------------------------------------ шапка/подвал
@@ -468,5 +512,12 @@
     + ` · только авто от ${DATA.minYear || 2016} г.`;
 
   updateCounts();
-  render();
-})();
+  // открыть лот по ссылке из Telegram: …#lot=<id>
+  const m = location.hash.match(/^#lot=(.+)$/);
+  if (m) { const id = decodeURIComponent(m[1]); history.replaceState(null, '', location.pathname); state.tab = BY_ID[id]?.category || state.tab; render(); openLot(id); }
+  else render();
+  return { openLot, render, updateCounts, BY_ID, RATE, title, fmt, esc, FUEL, sources: DATA.sources, closeModal,
+           go: tab => { state = { ...DEF, tab }; changed(); },
+           applyState: st => { state = { ...DEF, ...st }; changed(); window.scrollTo(0, 0); } };
+};
+if (window.AUCTION_DATA && !window.KAL_CONFIG) window.startCatalog(window.AUCTION_DATA);

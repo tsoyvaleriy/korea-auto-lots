@@ -5,8 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Korea Auto Lots</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=87807697b1">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@300;600;700;800&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<meta name="theme-color" content="#111111">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="KoreaAutoLots">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="styles.css?v=5fe4b99c59">
+<script>
+  // тема: сохранённая или системная — до отрисовки, чтобы не мигало
+  (function () { var t; try { t = localStorage.getItem('theme'); } catch (e) {}
+    if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.dataset.theme = t; })();
+</script>
 </head>
 <body>
 <header class="top">
@@ -16,13 +30,15 @@
     <button data-tab="damaged">Битые <span></span></button>
     <button data-tab="wish">♥ Избранное <span></span></button>
   </nav>
+  <button class="icon-btn" id="themeBtn" title="Светлая / тёмная тема" aria-label="Сменить тему">◐</button>
 </header>
 
 <div class="layout">
   <aside class="filters" id="filters">
     <div class="f-head">
       <h3>Фильтры</h3>
-      <button class="link" id="reset">Сбросить</button>
+      <span><button class="link" id="saveSearch" hidden title="Уведомлять в Telegram о новых лотах по этим фильтрам">☆ Сохранить поиск</button>
+      <button class="link" id="reset">Сбросить</button></span>
     </div>
     <input id="q" type="search" placeholder="Марка, модель, № лота, VIN…">
 
@@ -71,8 +87,15 @@
 
 <footer class="foot" id="foot"></footer>
 
-<script src="data/lots.enc.js?v=98b24f5db2"></script>
-<script>window.SITE_VER="cda7875f0c"</script>
-<script src="gate.js?v=46d71226f3"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js?v=b9c2b99744"></script>
+<script src="app.js?v=1ffad9aaa6"></script>
+<script src="portal.js?v=afb8fac283"></script>
+<script>
+  document.getElementById('themeBtn').onclick = function () {
+    var t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = t; try { localStorage.setItem('theme', t); } catch (e) {}
+  };
+</script>
 </body>
 </html>
