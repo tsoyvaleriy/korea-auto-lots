@@ -224,11 +224,28 @@
   function setupHeader() {
     const tabs = $('#tabs');
     if (!tabs.querySelector('[data-tab=bids]'))
-      tabs.insertAdjacentHTML('beforeend', `<button data-tab="bids">Мои ставки <span></span></button>` +
+      tabs.insertAdjacentHTML('beforeend', `<button data-tab="bids" class="in-cab">Мои ставки <span></span></button>` +
         (ME.role === 'admin' ? `<button data-tab="admin">Админ</button>` : ''));
-    const top = $('.top');
-    if (!$('#who')) $('#themeBtn').insertAdjacentHTML('beforebegin',
-      `<div id="who"><span>${esc(ME.display_name)}</span><button class="logout" id="btnLogout">Выйти</button></div>`);
+    // личный кабинет — кнопка с инициалами справа вверху
+    const initials = String(ME.display_name || ME.login || '?').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    if (!$('#who')) $('#themeBtn').insertAdjacentHTML('afterend', `<div id="who">
+      <button class="me-btn" id="meBtn" aria-haspopup="true" aria-expanded="false" title="Личный кабинет">
+        <span class="me-av">${esc(initials)}</span><span class="me-name">${esc(ME.display_name)}</span><span class="me-caret">▾</span></button>
+      <div class="me-menu" id="meMenu" hidden>
+        <div class="me-head"><b>${esc(ME.display_name)}</b><span>${ME.role === 'admin' ? 'администратор' : 'партнёр'} · ${esc(ME.login || '')}</span></div>
+        <button data-go="bids">👤 Личный кабинет</button>
+        <button data-go="wish">♥ Избранное</button>
+        ${ME.role === 'admin' ? '<button data-go="admin">⚙️ Админ-панель</button>' : ''}
+        <hr><button id="btnLogout" class="me-out">Выйти</button>
+      </div></div>`);
+    const menu = $('#meMenu'), btn = $('#meBtn');
+    const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+    btn.onclick = e => { e.stopPropagation(); menu.hidden = !menu.hidden; btn.setAttribute('aria-expanded', String(!menu.hidden)); };
+    document.addEventListener('click', e => { if (!menu.hidden && !e.target.closest('#who')) close(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+    menu.querySelectorAll('[data-go]').forEach(b => b.onclick = () => {
+      close(); $(`#tabs [data-tab="${b.dataset.go}"]`)?.click(); window.scrollTo(0, 0);
+    });
     $('#btnLogout').onclick = logout;
   }
 

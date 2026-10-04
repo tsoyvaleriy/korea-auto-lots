@@ -42,12 +42,28 @@ a { color: var(--ink); text-underline-offset: 3px; }
 .tabs button.active { color: var(--ink); }
 .tabs button.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--ink); border-radius: 2px; }
 .tabs button span { font-size: 11px; margin-left: 4px; color: var(--muted); font-variant-numeric: tabular-nums; }
-#who { margin-left: auto; display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--ink-2); }
+#who { position: relative; display: flex; align-items: center; }
+.me-btn { display: flex; align-items: center; gap: 8px; background: none; border: 1px solid var(--line-2); border-radius: 999px; padding: 3px 12px 3px 3px;
+  cursor: pointer; color: var(--ink); font: inherit; font-size: 13px; font-weight: 500; transition: background .2s; }
+.me-btn:hover, .me-btn[aria-expanded="true"] { background: var(--surface-2); }
+.me-av { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center;
+  font-size: 12px; font-weight: 700; letter-spacing: .02em; }
+.me-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me-caret { font-size: 10px; color: var(--muted); }
+.me-menu { position: absolute; right: 0; top: calc(100% + 8px); min-width: 230px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-sm); box-shadow: var(--shadow-hover); padding: 6px; z-index: 50; display: flex; flex-direction: column; }
+.me-menu[hidden] { display: none; }
+.me-head { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+.me-head span { font-size: 12px; color: var(--muted); }
+.me-menu button { text-align: left; background: none; border: 0; padding: 11px 12px; border-radius: 8px; cursor: pointer; color: var(--ink); font: inherit; font-size: 14px; }
+.me-menu button:hover { background: var(--surface-2); }
+.me-menu hr { border: 0; border-top: 1px solid var(--line); margin: 6px 0; }
+.me-menu .me-out { color: var(--red); }
 .logout, .icon-btn { background: none; border: 1px solid var(--line-2); color: var(--ink); border-radius: 999px; padding: 6px 14px; cursor: pointer; font-size: 13px; transition: background .2s, border-color .2s; }
 .logout:hover, .icon-btn:hover { background: var(--surface-2); }
 .icon-btn { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; font-size: 15px; flex: none; }
 .top > .icon-btn { margin-left: auto; }
-#who ~ .icon-btn { margin-left: 0; }
+
 
 /* ---------------- раскладка ---------------- */
 .layout { display: grid; grid-template-columns: 280px 1fr; gap: 32px; padding: 28px 32px 40px; max-width: 1640px; margin: 0 auto; }
@@ -283,6 +299,15 @@ body.locked .layout, body.locked .foot { visibility: hidden; }
 .foot { text-align: center; color: var(--muted); font-size: 12px; padding: 28px 16px 40px; }
 
 /* ---------------- мобильная версия ---------------- */
+/* личный кабинет: «Мои ставки» и «Избранное» убраны из верхнего меню */
+body:has(#who) .tabs .in-cab { display: none; }
+.cab-nav { margin-bottom: 18px; }
+.cab-nav h2 { font-family: var(--display); font-size: 22px; font-weight: 700; margin: 0 0 14px; }
+.cab-tabs { display: inline-flex; gap: 4px; padding: 4px; background: var(--surface-2); border-radius: 999px; }
+.cab-tabs button { border: 0; background: none; padding: 8px 16px; border-radius: 999px; cursor: pointer; color: var(--muted); font: inherit; font-size: 14px; font-weight: 500; }
+.cab-tabs button.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.cab-tabs button span { font-size: 11px; margin-left: 4px; color: var(--muted); }
+
 @media (max-width: 900px) {
   .top { flex-wrap: wrap; height: auto; gap: 8px 16px; padding: 12px 16px 0; }
   .brand { font-size: 15px; }
@@ -309,7 +334,8 @@ body.locked .layout, body.locked .foot { visibility: hidden; }
   .adm-head { grid-template-columns: 72px 1fr; } .adm-head .btn { grid-column: 1 / -1; justify-content: center; }
   .adm-head img { width: 72px; height: 52px; }
   table.adm-bids { display: block; overflow-x: auto; }
-  #who span { display: none; }
+  .me-name { display: none; }
+  .me-btn { padding: 3px 8px 3px 3px; gap: 4px; }
   .toggles { grid-template-columns: 1fr; }
 }
 @media (min-width: 1500px) { .grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); } }

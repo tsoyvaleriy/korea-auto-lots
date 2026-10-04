@@ -14,7 +14,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="KoreaAutoLots">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="stylesheet" href="styles.css?v=ddb99d4120">
+<link rel="stylesheet" href="styles.css?v=ead5679cd9">
 <script>
   // тема: сохранённая или системная — до отрисовки, чтобы не мигало
   (function () { var t; try { t = localStorage.getItem('theme'); } catch (e) {}
@@ -28,7 +28,7 @@
   <nav class="tabs" id="tabs">
     <button data-tab="whole" class="active">Autohub <span></span></button>
     <button data-tab="damaged">Битые <span></span></button>
-    <button data-tab="wish">♥ Избранное <span></span></button>
+    <button data-tab="wish" class="in-cab">♥ Избранное <span></span></button>
   </nav>
   <button class="icon-btn" id="themeBtn" title="Светлая / тёмная тема" aria-label="Сменить тему">◐</button>
 </header>
@@ -62,6 +62,10 @@
   </aside>
 
   <main>
+    <div id="cabNav" class="cab-nav" hidden>
+      <h2>Личный кабинет</h2>
+      <div class="cab-tabs"><button data-cab="bids">Мои ставки <span></span></button><button data-cab="wish">♥ Избранное <span></span></button></div>
+    </div>
     <div class="toolbar">
       <button class="btn-filters" id="openFilters">Фильтры</button>
       <div id="count" class="count"></div>
@@ -89,8 +93,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js?v=b9c2b99744"></script>
-<script src="app.js?v=187bd46277"></script>
-<script src="portal.js?v=80f022b52c"></script>
+<script src="app.js?v=7b9bfdeb9d"></script>
+<script src="portal.js?v=16e7ca52f3"></script>
 <script>
   document.getElementById('themeBtn').onclick = function () {
     var t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';

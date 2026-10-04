@@ -249,6 +249,11 @@ window.startCatalog = function (DATA, P) {
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === state.tab));
     $('#filters').style.visibility = ['wish', 'bids', 'admin'].includes(state.tab) ? 'hidden' : '';
     $('#sort').style.display = ['wish', 'bids', 'admin'].includes(state.tab) ? 'none' : '';
+    $('#openFilters').style.display = ['wish', 'bids', 'admin'].includes(state.tab) ? 'none' : '';
+    // «Мои ставки» и «Избранное» — разделы личного кабинета (вход — кнопка справа вверху)
+    const cab = !!P.renderBids && ['bids', 'wish'].includes(state.tab);
+    $('#cabNav').hidden = !cab;
+    document.querySelectorAll('#cabNav [data-cab]').forEach(b => b.classList.toggle('active', b.dataset.cab === state.tab));
     if (state.tab === 'wish') return renderWish();
     const portalTab = ['bids', 'admin'].includes(state.tab);
     $('#filters').style.visibility = portalTab ? 'hidden' : $('#filters').style.visibility;
@@ -283,6 +288,8 @@ window.startCatalog = function (DATA, P) {
     const sp = t => document.querySelector(`#tabs [data-tab="${t}"] span`) || {};
     sp('whole').textContent = c.whole; sp('damaged').textContent = c.damaged; sp('wish').textContent = Object.keys(wish).length;
     sp('bids').textContent = P.activeBidsCount?.() || '';
+    const cs = t => document.querySelector(`#cabNav [data-cab="${t}"] span`) || {};
+    cs('wish').textContent = Object.keys(wish).length || ''; cs('bids').textContent = P.activeBidsCount?.() || '';
   }
 
   // ------------------------------------------------------------ схема кузова
@@ -471,6 +478,7 @@ window.startCatalog = function (DATA, P) {
     state = { ...DEF, ...(b.dataset.tab === state.tab ? state : keep), tab: b.dataset.tab };
     changed();
   };
+  $('#cabNav').onclick = e => { const b = e.target.closest('[data-cab]'); if (b) document.querySelector(`#tabs [data-tab="${b.dataset.cab}"]`)?.click(); };
   let qt;
   $('#q').oninput = e => { clearTimeout(qt); qt = setTimeout(() => { state.q = e.target.value; changed(); }, 200); };
   $('#fMake').onchange = e => { state.make = e.target.value; state.model = ''; changed(); };
