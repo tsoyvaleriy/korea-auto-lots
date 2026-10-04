@@ -586,6 +586,13 @@
         });
         if (!r.ok || sendTg) {
           const j = await r.json().catch(() => ({}));
+          if (r.status === 409 && sendTg) {   // Telegram ещё не подключён — предлагаем подключить прямо здесь
+            if (confirm('Чтобы получать архивы, подключите Telegram.\n\nОткрыть бота сейчас? Нажмите в нём «Старт», вернитесь сюда и отправьте архив ещё раз.')) {
+              const { data: code } = await sb.rpc('new_tg_link_code');
+              if (code) window.open(`https://t.me/${CFG.botUsername || 'korealotsbot'}?start=${code}`, '_blank');
+            }
+            btn.disabled = false; btn.textContent = label; return;
+          }
           if (!r.ok || j.error) throw new Error(j.error || 'ошибка ' + r.status);
           toast(`Архив «${j.name}» отправлен в Telegram (${j.photos} фото)`);
         } else {

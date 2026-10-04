@@ -28,7 +28,7 @@ window.startCatalog = function (DATA, P) {
     if (wish[id]) delete wish[id];
     else {
       const l = BY_ID[id];
-      wish[id] = { added: Date.now(), note: '', snap: { id: l.id, source: l.source, category: l.category, make: l.make, model: l.model, year: l.year, mileage: l.mileage, priceKRW: l.priceKRW, photos: (l.photos || []).slice(0, 1), url: l.url, endsAt: l.endsAt, lotNo: l.lotNo } };
+      wish[id] = { added: Date.now(), note: '', snap: { id: l.id, source: l.source, category: l.category, make: l.make, model: l.model, year: l.year, mileage: l.mileage, mileageApprox: l.mileageApprox, priceKRW: l.priceKRW, photos: (l.photos || []).slice(0, 1), url: l.url, endsAt: l.endsAt, lotNo: l.lotNo } };
     }
     store.set('wish', wish);
     P.favToggle?.(id, wish[id]);
@@ -204,7 +204,7 @@ window.startCatalog = function (DATA, P) {
       </div>
       <div class="body">
         <div class="title"><span class="t">${esc(title(l))}</span><small>${[l.grade, l.lotNo && 'лот ' + l.lotNo].filter(Boolean).map(esc).join(' · ')}</small></div>
-        <div class="specs"><span>${l.year || '—'}</span><span>${l.mileage != null ? fmt(l.mileage) + ' км' : 'пробег —'}</span><span>${FUEL[l.fuel] || ''}</span>${l.transmission ? `<span>${l.transmission}</span>` : ''}</div>
+        <div class="specs"><span>${l.year || '—'}</span><span${l.mileageApprox ? ' title="Пробег не подтверждён аукционом — взят из описания"' : ''}>${l.mileage != null ? (l.mileageApprox ? '≈ ' : '') + fmt(l.mileage) + ' км' : 'пробег —'}</span><span>${FUEL[l.fuel] || ''}</span>${l.transmission ? `<span>${l.transmission}</span>` : ''}</div>
         ${tags.length ? `<div class="tags">${tags.join('')}</div>` : ''}
         <div class="price-row">${priceHtml(l)}${endsLabel(l)}</div>
       </div></div>`;
@@ -224,7 +224,7 @@ window.startCatalog = function (DATA, P) {
       return `<div class="wish-row" data-id="${esc(id)}">
         ${l.photos?.[0] ? `<img src="${esc(l.photos[0])}" referrerpolicy="no-referrer" alt="">` : '<img alt="">'}
         <div><div class="title">${esc(title(l))}<small>${esc(DATA.sources[l.source]?.name || l.source)} · ${l.category === 'damaged' ? 'битый' : 'Autohub'} · лот ${esc(l.lotNo || '—')}</small></div>
-          <div class="specs"><span>${l.year || ''}</span><span>${l.mileage != null ? fmt(l.mileage) + ' км' : ''}</span><span><b>${l.usd ? '$' + fmt(l.usd) : ''}</b></span>
+          <div class="specs"><span>${l.year || ''}</span><span>${l.mileage != null ? (l.mileageApprox ? '≈ ' : '') + fmt(l.mileage) + ' км' : ''}</span><span><b>${l.usd ? '$' + fmt(l.usd) : ''}</b></span>
           ${!live ? '<span class="gone">лот снят / торги завершены</span>' : ended(l) ? '<span class="gone">торги прошли</span>' : ''}</div>
           <input class="note" data-note="${esc(id)}" value="${esc(wish[id].note)}" placeholder="заметка…" style="margin-top:6px;width:100%;border:1px solid var(--line);border-radius:6px;padding:4px 8px" onclick="event.stopPropagation()"></div>
         <div class="wish-actions">${endsLabel(l)}<button class="btn danger" data-unwish="${esc(id)}">Убрать</button></div></div>`;
@@ -396,7 +396,7 @@ window.startCatalog = function (DATA, P) {
     const rows = [
       ['Аукцион', `<a href="${esc(DATA.sources[l.source]?.site)}" target="_blank" rel="noreferrer">${esc(DATA.sources[l.source]?.name)}</a>`],
       ['Лот №', esc(l.lotNo)], ['Год', l.year || '—'], ['Первая регистрация', esc(l.regDate || '—')],
-      ['Пробег', l.mileage != null ? fmt(l.mileage) + ' км' : '—'], ['Топливо', FUEL[l.fuel] + (l.fuelRaw ? ` <span class="hint">(${esc(l.fuelRaw)})</span>` : '')],
+      ['Пробег', l.mileage != null ? (l.mileageApprox ? '≈ ' : '') + fmt(l.mileage) + ' км' + (l.mileageApprox ? ` <span class="hint">(не подтверждён — ${esc(l.mileageNote || 'из описания')})</span>` : '') : '—'], ['Топливо', FUEL[l.fuel] + (l.fuelRaw ? ` <span class="hint">(${esc(l.fuelRaw)})</span>` : '')],
       ['КПП', esc(l.transmission || '—')], ['Объём', l.engineCc ? fmt(l.engineCc) + ' см³' : '—'], ['Цвет', COLOR[l.color] || '—'],
       ['VIN', esc(l.vin || '—')], ['Госномер', esc(l.plate || '—')],
       ['Местонахождение', esc(l.location || '—')],
