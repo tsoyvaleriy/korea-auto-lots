@@ -150,7 +150,7 @@ window.startCatalog = function (DATA, P) {
     state.fuel.forEach(f => p.push(FUEL[f]));
     if (state.noRepl) p.push('без замен');
     if (state.q) p.push(`«${state.q}»`);
-    return (state.tab === 'damaged' ? 'Битые: ' : 'Целые: ') + (p.join(', ') || 'все');
+    return (state.tab === 'damaged' ? 'Битые: ' : 'Autohub: ') + (p.join(', ') || 'все');
   }
 
   function activeChips() {
@@ -223,7 +223,7 @@ window.startCatalog = function (DATA, P) {
       const live = BY_ID[id], l = live ? { ...live } : { ...wish[id].snap, usd: wish[id].snap.priceKRW ? Math.round(wish[id].snap.priceKRW / RATE) : null };
       return `<div class="wish-row" data-id="${esc(id)}">
         ${l.photos?.[0] ? `<img src="${esc(l.photos[0])}" referrerpolicy="no-referrer" alt="">` : '<img alt="">'}
-        <div><div class="title">${esc(title(l))}<small>${esc(DATA.sources[l.source]?.name || l.source)} · ${l.category === 'damaged' ? 'битый' : 'целый'} · лот ${esc(l.lotNo || '—')}</small></div>
+        <div><div class="title">${esc(title(l))}<small>${esc(DATA.sources[l.source]?.name || l.source)} · ${l.category === 'damaged' ? 'битый' : 'Autohub'} · лот ${esc(l.lotNo || '—')}</small></div>
           <div class="specs"><span>${l.year || ''}</span><span>${l.mileage != null ? fmt(l.mileage) + ' км' : ''}</span><span><b>${l.usd ? '$' + fmt(l.usd) : ''}</b></span>
           ${!live ? '<span class="gone">лот снят / торги завершены</span>' : ended(l) ? '<span class="gone">торги прошли</span>' : ''}</div>
           <input class="note" data-note="${esc(id)}" value="${esc(wish[id].note)}" placeholder="заметка…" style="margin-top:6px;width:100%;border:1px solid var(--line);border-radius:6px;padding:4px 8px" onclick="event.stopPropagation()"></div>
@@ -418,8 +418,10 @@ window.startCatalog = function (DATA, P) {
           <dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
           ${l.alsoOn?.length ? `<p class="hint" style="margin-top:12px">Этот же автомобиль на других аукционах: ${l.alsoOn.map(a => `<b>${esc(DATA.sources[a.source]?.name || a.source)}</b>${a.lotNo ? ' (лот ' + esc(a.lotNo) + ')' : ''}`).join(', ')}</p>` : ''}
           <div id="bidBox"></div>
+          <div id="calcBox"></div>
           <div class="m-actions">
             <button class="btn ${isWish(l.id) ? '' : 'primary'}" id="mWish" ${BY_ID[l.id] ? '' : 'hidden'}>${isWish(l.id) ? '♥ В избранном' : '♡ В избранное'}</button>
+            <span id="zipBox"></span>
           </div>
         </div>
       </div>
@@ -434,6 +436,8 @@ window.startCatalog = function (DATA, P) {
     $('#modal').hidden = false;
     document.body.style.overflow = 'hidden';
     P.bidPanel?.($('#bidBox'), l);
+    P.calcPanel?.($('#calcBox'), l);
+    P.zipButtons?.($('#zipBox'), l);
     P.afterModal?.($('#modalBox'));
     Promise.resolve(P.salesPanel?.($('#salesBox'), l)).then(() => P.afterModal?.($('#salesBox')));
     const show = k => {

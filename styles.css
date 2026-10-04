@@ -317,3 +317,13 @@ body.locked .layout, body.locked .foot { visibility: hidden; }
 
 .gate-tip { font-size: 12px; line-height: 1.5; color: var(--amber); background: var(--amber-soft); border-radius: 10px; padding: 10px 12px; }
 .gate-tip.soft { color: var(--muted); background: var(--surface-2); }
+
+/* калькуляция */
+.calc { border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; margin: 12px 0 4px; display: flex; flex-direction: column; gap: 6px; }
+.calc-h { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 4px; }
+.calc-h select { padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+.calc-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; padding: 3px 0; font-variant-numeric: tabular-nums; }
+.calc-row.total { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 10px; font-family: var(--display); font-size: 20px; font-weight: 800; }
+.calc-in { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }
+.calc-in input { width: 120px; padding: 6px 10px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface); text-align: right; font-weight: 600; }
+#zipBox { display: contents; }
