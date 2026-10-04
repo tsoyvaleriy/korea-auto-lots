@@ -97,6 +97,7 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
 .active-chips .chip { background: var(--surface-2); border-color: transparent; }
 #sort { padding: 9px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; }
 .btn-filters { display: none; }
+.f-apply, .f-close { display: none; }
 
 /* ---------------- карточки ---------------- */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 22px; align-items: stretch; grid-auto-rows: 1fr; }
@@ -316,7 +317,16 @@ body:has(#who) .tabs .in-cab { display: none; }
   .tabs button.active::after { bottom: 0; }
   .layout { grid-template-columns: 1fr; padding: 16px; gap: 16px; }
   .filters { display: none; position: fixed; inset: 0; z-index: 40; max-height: none; background: var(--bg); padding: 20px 16px; }
-  .filters.open { display: block; }
+  .filters.open { display: block; overflow-y: auto; padding-bottom: 0; top: 0; bottom: auto; height: 100vh; height: 100dvh; max-height: 100dvh; }
+  .filters.open .f-head { position: relative; }
+  .f-close { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line-2);
+    background: var(--surface); color: var(--ink); font-size: 15px; cursor: pointer; margin-left: auto; margin-right: 8px; }
+  .f-apply { display: block; position: sticky; bottom: 0; margin: 20px -16px 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: var(--bg); border-top: 1px solid var(--line); }
+  .f-apply .btn { width: 100%; justify-content: center; padding: 14px; font-size: 15px; border-radius: 999px; }
+  html.no-scroll, body.no-scroll { overflow: hidden; overscroll-behavior: none; }
+  body.no-scroll { position: fixed; left: 0; right: 0; width: 100%; }
+  .filters.open { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
   .btn-filters { display: inline-flex; border: 1px solid var(--line-2); background: var(--surface); padding: 8px 16px; border-radius: 999px; }
   .grid { grid-template-columns: 1fr; gap: 16px; }
   .modal { padding: 0; }

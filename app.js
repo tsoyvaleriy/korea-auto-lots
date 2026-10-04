@@ -268,6 +268,7 @@ window.startCatalog = function (DATA, P) {
     activeChips();
     const list = filtered().sort(SORTS[state.sort]);
     $('#count').textContent = `${fmt(list.length)} лотов`;
+    if ($('#fApply')) $('#fApply').textContent = list.length ? `Показать ${fmt(list.length)} лотов` : 'Ничего не найдено';
     $('#grid').innerHTML = list.slice(0, shown).map(card).join('');
     $('#more').hidden = list.length <= shown;
     $('#more').textContent = `Показать ещё (${fmt(list.length - shown)})`;
@@ -500,11 +501,25 @@ window.startCatalog = function (DATA, P) {
     $('#saveSearch').onclick = () => P.saveSearch?.({ ...state }, filtered().map(l => l.id), describe());
   }
   $('#more').onclick = () => { shown += PAGE; render(); };
-  $('#openFilters').onclick = () => $('#filters').classList.add('open');
-  const done = document.createElement('button');
-  done.className = 'btn primary btn-filters'; done.textContent = 'Показать результаты'; done.style.cssText = 'width:100%;margin-top:16px';
-  done.onclick = () => $('#filters').classList.remove('open');
+  // мобильная версия: фильтры открываются на весь экран, кнопка «Показать N лотов» всегда видна внизу
+  // страница под фильтрами «замораживается» (иначе на iPhone прокручивается она, а не фильтры)
+  const closeFilters = () => {
+    $('#filters').classList.remove('open');
+    document.documentElement.classList.remove('no-scroll'); document.body.classList.remove('no-scroll');
+    document.body.style.top = ''; window.scrollTo(0, 0);
+  };
+  $('#openFilters').onclick = () => {
+    document.body.style.top = `-${window.scrollY}px`;
+    document.documentElement.classList.add('no-scroll'); document.body.classList.add('no-scroll');
+    $('#filters').classList.add('open'); $('#filters').scrollTop = 0;
+  };
+  $('#filters .f-head h3').insertAdjacentHTML('afterend', '<button class="f-close" id="fClose" aria-label="Закрыть">✕</button>');
+  $('#fClose').onclick = closeFilters;
+  const done = document.createElement('div');
+  done.className = 'f-apply';
+  done.innerHTML = '<button class="btn primary" id="fApply">Показать результаты</button>';
   $('#filters').appendChild(done);
+  $('#fApply').onclick = closeFilters;
 
   document.addEventListener('click', e => {
     const h = e.target.closest('[data-heart]');

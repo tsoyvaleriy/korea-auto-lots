@@ -289,18 +289,15 @@
           <label>${mine ? 'Повысить ставку' : 'Ваша ставка'}, $</label>
           <div class="bid-row"><input type="number" id="bidAmt" min="100" step="${STEP}" value="${suggest}" placeholder="сумма в $" required>
             <button class="btn primary" type="submit">${mine ? '⬆ Повысить' : 'Поставить'}</button></div>
-          <div class="hint" id="bidKrw"></div>
           <input id="bidNote" placeholder="комментарий для менеджера (необязательно)" value="${esc(mine?.comment || '')}">
           <div class="bid-msg" id="bidMsg"></div>
-          <p class="hint">Ставки вслепую: другие партнёры вашу ставку не видят.${mine ? ` Шаг повышения — ${usd(STEP)}.` : ''}</p>
+          ${mine ? `<p class="hint">Шаг повышения — ${usd(STEP)}.</p>` : ''}
         </form></div>`;
     }
     el.innerHTML = h;
     tick();
     const f = el.querySelector('.bid-form');
     if (!f) return;
-    const krw = () => { const v = +$('#bidAmt').value; $('#bidKrw').textContent = v && ME.role === 'admin' ? `≈ ₩${Math.round(v * RATE).toLocaleString('ru-RU')}` : ''; };
-    $('#bidAmt').oninput = krw; krw();
     f.onsubmit = async e => {
       e.preventDefault();
       const amount = Math.round(+$('#bidAmt').value);
@@ -416,9 +413,9 @@
             <div class="hint">${esc(SRC[s.source] || s.source || '')} · лот <b>${esc(s.lotNo || '—')}</b> · VIN ${esc(s.vin || '—')}</div>
             <div class="hint">Торги ${dateStr(x.ends)} KST · ${timer(x.ends)}</div></div>
           <button class="btn" data-open="${esc(x.id)}">Лот</button></div>
-        <table class="adm-bids"><tr><th>Партнёр</th><th>Ставка</th><th>≈ ₩</th><th>Обновлена</th><th>Комментарий</th></tr>
+        <table class="adm-bids"><tr><th>Партнёр</th><th>Ставка</th><th>Обновлена</th><th>Комментарий</th></tr>
           ${sorted.map((b, i) => `<tr class="${i === 0 ? 'lead' : ''}"><td>${esc(P_[b.partner_id]?.display_name || '?')}</td><td><b>${usd(b.amount_usd)}</b></td>
-            <td>${Math.round(b.amount_usd * RATE).toLocaleString('ru-RU')}</td><td>${dateStr(b.updated_at)}</td><td>${esc(b.comment || '')}</td></tr>`).join('')}
+            <td>${dateStr(b.updated_at)}</td><td>${esc(b.comment || '')}</td></tr>`).join('')}
         </table>
         ${r ? `<div class="adm-res">Итог: <b>${esc(r.winner_partner_id ? (P_[r.winner_partner_id]?.display_name || 'партнёр') : (r.winner_label || 'сторонний покупатель'))}</b> за <b>${usd(r.price_usd)}</b>
               ${r.note ? ' · ' + esc(r.note) : ''} <button class="link" data-clear="${esc(x.id)}">изменить</button></div>`
@@ -457,10 +454,10 @@
   }
 
   function csv(list, P_) {
-    const rows = [['Лот', 'Аукцион', 'Авто', 'Год', 'VIN', 'Торги (KST)', 'Партнёр', 'Ставка $', 'Ставка ₩', 'Комментарий']];
+    const rows = [['Лот', 'Аукцион', 'Авто', 'Год', 'VIN', 'Торги (KST)', 'Партнёр', 'Ставка $', 'Комментарий']];
     list.forEach(x => x.bids.forEach(b => {
       const s = x.snap || {};
-      rows.push([s.lotNo, SRC[s.source] || s.source, titleOf(s), s.year, s.vin, dateStr(x.ends), P_[b.partner_id]?.display_name, b.amount_usd, Math.round(b.amount_usd * RATE), b.comment || '']);
+      rows.push([s.lotNo, SRC[s.source] || s.source, titleOf(s), s.year, s.vin, dateStr(x.ends), P_[b.partner_id]?.display_name, b.amount_usd, b.comment || '']);
     }));
     const text = '\ufeff' + rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
     const a = document.createElement('a');
@@ -551,7 +548,7 @@
     [/(\d[\d\s, ]*\d|\d)\s*(?:₩|원|KRW|вон)/gi, (m, n) => toUsd(numOf(n))],                  // 300 000 ₩ / 300,000원
   ];
   function hideKrw(root) {
-    if (!root || ME?.role === 'admin') return;
+    if (!root) return;                     // суммы в вонах не показываем никому — только $
     const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     const nodes = [];
     while (walk.nextNode()) if (/₩|원|만|KRW|вон/i.test(walk.currentNode.nodeValue)) nodes.push(walk.currentNode);
