@@ -38,7 +38,9 @@ window.startCatalog = function (DATA, P) {
   }
 
   // ------------------------------------------------------------ состояние
-  const DEF = { tab: 'whole', q: '', src: [], make: '', model: '', yFrom: '', yTo: '', pFrom: '', pTo: '', km: 200000, fuel: [], tm: [], sheet: false, noRepl: false, hasPrice: false, active: true, sort: 'ends' };
+  const DEF = { tab: 'whole', q: '', src: [], make: '', model: '', yFrom: '', yTo: '', pFrom: '', pTo: '', km: 200000, fuel: [], tm: [], sheet: false, noRepl: false, hasPrice: false, active: true, sort: 'ends', origin: '', makes: [], models: [] };
+  // подбор из Telegram-бота: корейские / импортные, несколько марок и моделей
+  const KR_MAKES = ['Hyundai', 'Kia', 'Genesis', 'KGM', 'Renault', 'Chevrolet'];
   let state = { ...DEF, ...readHash() };
   let shown = PAGE;
 
@@ -67,6 +69,10 @@ window.startCatalog = function (DATA, P) {
       if (except !== 'src' && state.src.length && !state.src.includes(l.source)) return false;
       if (except !== 'make' && state.make && l.make !== state.make) return false;
       if (except !== 'model' && except !== 'make' && state.model && l.model !== state.model) return false;
+      if (state.origin && l.make !== 'Other' && (state.origin === 'kr') !== KR_MAKES.includes(l.make)) return false;
+      if (state.origin && l.make === 'Other') return false;
+      if (except !== 'make' && state.makes?.length && !state.makes.includes(l.make)) return false;
+      if (except !== 'model' && except !== 'make' && state.models?.length && !state.models.includes(l.modelKey)) return false;
       if (state.yFrom && l.year && l.year < +state.yFrom) return false;
       if (state.yTo && l.year && l.year > +state.yTo) return false;
       if (state.pFrom && (l.usd ?? Infinity) < +state.pFrom) return false;

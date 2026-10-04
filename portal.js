@@ -19,7 +19,7 @@
   const ts = s => s ? new Date(/[zZ]|[+-]\d\d:\d\d$/.test(s) ? s : s + '+09:00').getTime() : null;
   const dateStr = s => s ? new Date(ts(s)).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
 
-  let ME = null, CAT = null, RATE = 1325;
+  let ME = null, CAT = null, RATE = 1325, RATE_INFO = null;
   let MY = {};                       // lot_id -> моя ставка (строка my_bids)
 
   // ------------------------------------------------------------ вход
@@ -97,7 +97,7 @@
   async function favNote(id, note) { await sb.from('favorites').update({ note }).eq('partner_id', ME.id).eq('lot_id', id); }
 
   // ------------------------------------------------------------ сохранённые поиски
-  const SEARCH_KEYS = ['tab', 'q', 'src', 'make', 'model', 'yFrom', 'yTo', 'pFrom', 'pTo', 'km', 'fuel', 'tm', 'sheet', 'noRepl'];
+  const SEARCH_KEYS = ['tab', 'q', 'src', 'make', 'model', 'yFrom', 'yTo', 'pFrom', 'pTo', 'km', 'fuel', 'tm', 'sheet', 'noRepl', 'origin', 'makes', 'models'];
   async function saveSearch(state, ids, desc) {
     const name = prompt('Название поиска (о новых лотах сообщим в Telegram):', desc);
     if (!name) return;
@@ -194,7 +194,7 @@
       e.stopPropagation(); if (!confirm('Удалить поиск?')) return;
       await sb.from('saved_searches').delete().eq('id', b.dataset.ssdel); renderBids(box, count);
     });
-    box.querySelectorAll('.ss-open').forEach(b => b.onclick = e => { e.stopPropagation(); CAT.applyState(SS[b.dataset.ssid] || {}); });
+    box.querySelectorAll('.ss-open').forEach(b => b.onclick = e => { e.stopPropagation(); const f = SS[b.dataset.ssid] || {}; CAT.applyState({ ...f, tab: f.tab || 'whole' }); });
   }
 
   async function boot() {
@@ -213,7 +213,7 @@
     ]);
     const M = Object.fromEntries((meta.data || []).map(r => [r.key, r.value]));
     P.favs = await loadFavs();
-    RATE = M.rate?.usd || RATE;
+    RATE = M.rate?.usd || RATE; RATE_INFO = M.rate || null;
     setupHeader();
     CAT = window.startCatalog({ lots: cards.map(r => r.card), sources: M.sources || {}, rate: M.rate || { usd: RATE }, minYear: M.minYear }, P);
     setInterval(tick, 1000);
@@ -359,7 +359,10 @@
 
   async function renderAdmin(box, count) {
     count.textContent = 'Администрирование';
-    box.innerHTML = `<div class="adm-tabs">
+    const ri = RATE_INFO || { usd: RATE };
+    const n = v => Number(v).toLocaleString('ru-RU');
+    box.innerHTML = `<div class="adm-rate"><span>Курс доллара</span><b>$1 = ₩${n(ri.usd)}</b></div>
+      <div class="adm-tabs">
         <button data-adm="bids" class="${ADM_TAB === 'bids' ? 'on' : ''}">Ставки по лотам</button>
         <button data-adm="partners" class="${ADM_TAB === 'partners' ? 'on' : ''}">Партнёры</button>
         <button data-adm="results" class="${ADM_TAB === 'results' ? 'on' : ''}">Итоги</button></div><div id="admBody"><div class="empty">Загружаю…</div></div>`;
