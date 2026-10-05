@@ -183,7 +183,7 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
 .gallery .strip img.on { opacity: 1; outline: 2px solid var(--ink); outline-offset: 2px; }
 .m-title { font-family: var(--display); font-size: 28px; font-weight: 800; margin: 0 0 4px; line-height: 1.15; letter-spacing: -.02em; }
 .m-sub { color: var(--muted); margin-bottom: 14px; }
-.m-price { display: flex; align-items: baseline; gap: 12px; margin: 18px 0 6px; }
+.m-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 18px 0 6px; }
 .m-price b { font-family: var(--display); font-size: 34px; font-weight: 800; letter-spacing: -.02em; }
 .m-price span { color: var(--muted); }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 9px 20px; font-size: 13px; margin: 16px 0 0; padding-top: 16px; border-top: 1px solid var(--line); }
@@ -300,6 +300,12 @@ body.locked .layout, body.locked .foot { visibility: hidden; }
 .foot { text-align: center; color: var(--muted); font-size: 12px; padding: 28px 16px 40px; }
 
 /* ---------------- мобильная версия ---------------- */
+/* пересчёт в другие валюты */
+.fx { margin-top: 6px; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.fx sup { color: var(--muted); margin-left: 1px; }
+.fx-note { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.m-price .fx, .m-price .fx-note { flex-basis: 100%; }
+
 /* личный кабинет: «Мои ставки» и «Избранное» убраны из верхнего меню */
 body:has(#who) .tabs .in-cab { display: none; }
 .cab-nav { margin-bottom: 18px; }

@@ -19,7 +19,16 @@
   const ts = s => s ? new Date(/[zZ]|[+-]\d\d:\d\d$/.test(s) ? s : s + '+09:00').getTime() : null;
   const dateStr = s => s ? new Date(ts(s)).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
 
-  let ME = null, CAT = null, RATE = 1325, RATE_INFO = null;
+  let ME = null, CAT = null, RATE = 1325, RATE_INFO = null, FX = null;
+  // справочный пересчёт долларовой суммы в EUR / AED / RUB (рыночный курс, как в Google)
+  const FX_CUR = [['EUR', '€'], ['AED', 'AED'], ['RUB', '₽']];
+  const fxNum = n => Math.round(n).toLocaleString('ru-RU');
+  function fxLine(amountUsd) {
+    if (!FX || !(amountUsd > 0)) return '';
+    const parts = FX_CUR.filter(([k]) => FX[k]).map(([k, sym]) => k === 'AED' ? `${fxNum(amountUsd * FX[k])} AED` : `${sym}${fxNum(amountUsd * FX[k])}`);
+    const at = FX.at ? new Date(FX.at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+    return parts.length ? `<div class="fx">≈ ${parts.join(' · ')}<sup>*</sup></div><div class="fx-note">* по курсу Google${at ? ` на ${at}` : ''}, справочно</div>` : '';
+  }
   let MY = {};                       // lot_id -> моя ставка (строка my_bids)
 
   // ------------------------------------------------------------ вход
@@ -213,7 +222,7 @@
     ]);
     const M = Object.fromEntries((meta.data || []).map(r => [r.key, r.value]));
     P.favs = await loadFavs();
-    RATE = M.rate?.usd || RATE; RATE_INFO = M.rate || null;
+    RATE = M.rate?.usd || RATE; RATE_INFO = M.rate || null; FX = M.fx || null;
     setupHeader();
     CAT = window.startCatalog({ lots: cards.map(r => r.card), sources: M.sources || {}, rate: M.rate || { usd: RATE }, minYear: M.minYear }, P);
     setInterval(tick, 1000);
@@ -277,7 +286,7 @@
     if (mine) {
       const res = mine.outcome === 'won' ? `<b class="g-good">🏆 Вы выиграли за ${usd(mine.result_price_usd)}</b>`
         : mine.outcome === 'lost' ? `<b class="g-bad">Лот ушёл за ${usd(mine.result_price_usd)}</b>` : '';
-      h += `<div class="bid-mine">Ваша ставка: <b>${usd(mine.amount_usd)}</b> <span class="hint">от ${dateStr(mine.updated_at)}</span>${res ? '<br>' + res : ''}</div>`;
+      h += `<div class="bid-mine">Ваша ставка: <b>${usd(mine.amount_usd)}</b> <span class="hint">от ${dateStr(mine.updated_at)}</span>${res ? '<br>' + res : ''}${fxLine(mine.amount_usd)}</div>`;
     }
     if (endMs) h += `<div class="bid-timer">До торгов: ${timer(lot.endsAt)} <span class="hint">· ${dateStr(lot.endsAt)} KST</span></div>`;
     if (mine?.outcome && mine.outcome !== 'pending') {
@@ -289,6 +298,7 @@
           <label>${mine ? 'Повысить ставку' : 'Ваша ставка'}, $</label>
           <div class="bid-row"><input type="number" id="bidAmt" min="100" step="${STEP}" value="${suggest}" placeholder="сумма в $" required>
             <button class="btn primary" type="submit">${mine ? '⬆ Повысить' : 'Поставить'}</button></div>
+          <div id="bidFx"></div>
           <input id="bidNote" placeholder="комментарий для менеджера (необязательно)" value="${esc(mine?.comment || '')}">
           <div class="bid-msg" id="bidMsg"></div>
           ${mine ? `<p class="hint">Шаг повышения — ${usd(STEP)}.</p>` : ''}
@@ -298,6 +308,8 @@
     tick();
     const f = el.querySelector('.bid-form');
     if (!f) return;
+    const fx = () => { $('#bidFx').innerHTML = fxLine(+$('#bidAmt').value); };
+    $('#bidAmt').addEventListener('input', fx); fx();
     f.onsubmit = async e => {
       e.preventDefault();
       const amount = Math.round(+$('#bidAmt').value);
@@ -571,6 +583,7 @@
         <div class="calc-row"><span>Сервисные расходы</span><span id="calcSrv"></span></div>
         <div class="calc-row"><span>Фрахт</span><span id="calcFr"></span></div>
         <div class="calc-row total"><span>Итого</span><span id="calcTot"></span></div>
+        <div id="calcFx"></div>
         <p class="hint" id="calcNote"></p></div>`;
     const upd = () => {
       const who = isAdm ? (PARTNERS || []).find(p => p.id === $('#calcWho')?.value) : ME;
@@ -579,6 +592,7 @@
       $('#calcPct').textContent = t.pct ? `${t.pct}%` : '';
       $('#calcFee').textContent = usd(fee); $('#calcSrv').textContent = usd(t.service); $('#calcFr').textContent = usd(t.freight);
       $('#calcTot').textContent = price ? usd(price + fee + t.service + t.freight) : '—';
+      $('#calcFx').innerHTML = price ? fxLine(price + fee + t.service + t.freight) : '';
       $('#calcNote').textContent = isAdm && !(PARTNERS || []).length ? 'Партнёров пока нет — условия задаются в «Админ → Партнёры».'
         : !t.pct && !t.service && !t.freight ? (isAdm ? 'У этого партнёра условия не заданы (Админ → Партнёры → условия).' : 'Условия ещё не заданы — обратитесь к менеджеру.') : '';
     };
@@ -634,6 +648,7 @@
     activeBidsCount: () => Object.values(MY).filter(b => b.outcome === 'pending' && !(ts(b.ends_at) < Date.now())).length,
     bidPanel, renderBids, renderAdmin, salesPanel, saveSearch, favToggle, favNote,
     afterModal: el => hideKrw(el),
+    fx: fxLine,
     calcPanel, zipButtons,
   };
 

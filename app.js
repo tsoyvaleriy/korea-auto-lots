@@ -427,7 +427,7 @@ window.startCatalog = function (DATA, P) {
           <h2 class="m-title">${esc(title(l))}</h2>
           <div class="m-sub">${esc(l.grade || '')}</div>
           <div class="tags">${(l.condition || []).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
-          ${l.category === 'damaged' ? '' : `<div class="m-price">${l.usd ? `<b>$${fmt(l.usd)}</b><span>стартовая цена</span>` : `<span>без стартовой цены${l.source === 'autohub_pub' ? ' — закрытые торги, ставки вслепую' : ''}</span>`}</div>`}
+          ${l.category === 'damaged' ? '' : `<div class="m-price">${l.usd ? `<b>$${fmt(l.usd)}</b><span>стартовая цена</span>${P.fx ? P.fx(l.usd) : ''}` : `<span>без стартовой цены${l.source === 'autohub_pub' ? ' — закрытые торги, ставки вслепую' : ''}</span>`}</div>`}
           ${l.feeKRW ? `<p class="hint">+ комиссия аукциона $${fmt(Math.round(l.feeKRW / RATE))}</p>` : ''}
           <dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
           ${l.alsoOn?.length ? `<p class="hint" style="margin-top:12px">Этот же автомобиль на других аукционах: ${l.alsoOn.map(a => `<b>${esc(DATA.sources[a.source]?.name || a.source)}</b>${a.lotNo ? ' (лот ' + esc(a.lotNo) + ')' : ''}`).join(', ')}</p>` : ''}
