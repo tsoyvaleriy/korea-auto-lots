@@ -674,19 +674,29 @@
     'kia|morning': 'picanto', 'kia|k7': 'cadenza', 'kia|k3': 'cerato', 'kia|k9': 'k900',
     'renault|qm6': 'koleos', 'renault|sm6': 'talisman', 'renault|xm3': 'arkana', 'renault|qm3': 'captur', 'renault|sm5': 'safrane',
   };
+  // пробег: ±25% (но не уже ±15 000 км), округление до 5 000 — чтобы в выдаче были сопоставимые машины
+  function kmRange(km) {
+    if (!(km > 0)) return [0, 0];
+    const d = Math.max(km * 0.25, 15000), r = v => Math.round(v / 5000) * 5000;
+    return [Math.max(0, r(km - d)), r(km + d)];
+  }
   function dubizzleUrl(lot) {
     const key = lot.modelKey || '';
     const [mk, base] = key.split('|');
     const make = DZ_MAKE[mk] || (mk || String(lot.make || '').toLowerCase()).replace(/\s+/g, '-');
     if (!make || make === 'other') return '';
     const model = DZ_MODEL[key] || (base || '').replace(/\s+/g, '-');
-    const q = lot.year ? `?year__gte=${lot.year - 1}&year__lte=${lot.year + 1}` : '';
-    return `https://uae.dubizzle.com/motors/used-cars/${make}/${model ? model + '/' : ''}${q}`;
+    const p = [];
+    if (lot.year) p.push(`year__gte=${lot.year - 1}`, `year__lte=${lot.year + 1}`);
+    const [kmFrom, kmTo] = kmRange(lot.mileage);
+    if (kmTo) p.push(`kilometers__gte=${kmFrom}`, `kilometers__lte=${kmTo}`);
+    return `https://uae.dubizzle.com/motors/used-cars/${make}/${model ? model + '/' : ''}${p.length ? '?' + p.join('&') : ''}`;
   }
+  const fmtKm = n => Math.round(n).toLocaleString('ru-RU');
   function extLinks(el, lot) {
     if (!el || ME?.role !== 'admin') return;
     const url = dubizzleUrl(lot);
-    if (url) el.insertAdjacentHTML('beforeend', `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener" title="Объявления этой модели в ОАЭ, год ±1">Похожие на Dubizzle ↗</a>`);
+    if (url) el.insertAdjacentHTML('beforeend', `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener" title="Объявления этой модели в ОАЭ: год ±1, пробег ${(() => { const [a, b] = kmRange(lot.mileage); return b ? `${fmtKm(a)}–${fmtKm(b)} км` : 'любой'; })()}">Похожие на Dubizzle ↗</a>`);
   }
 
   // ------------------------------------------------------------ связь с каталогом
