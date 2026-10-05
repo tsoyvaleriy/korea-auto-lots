@@ -666,6 +666,29 @@
     $('#zipTg').onclick = e => call(e.currentTarget, true, '📤 Архив в Telegram');
   }
 
+  // ------------------------------------------------------------ «Похожие на Dubizzle» (пока только админу)
+  // Корейские названия → как модель называется на рынке ОАЭ (адрес поиска dubizzle: /motors/used-cars/<марка>/<модель>/)
+  const DZ_MAKE = { kgm: 'ssangyong', 'mercedes-benz': 'mercedes-benz', 'land rover': 'land-rover' };
+  const DZ_MODEL = {
+    'hyundai|avante': 'elantra', 'hyundai|grandeur': 'azera', 'hyundai|santa fe': 'santa-fe', 'hyundai|lf': 'sonata',
+    'kia|morning': 'picanto', 'kia|k7': 'cadenza', 'kia|k3': 'cerato', 'kia|k9': 'k900',
+    'renault|qm6': 'koleos', 'renault|sm6': 'talisman', 'renault|xm3': 'arkana', 'renault|qm3': 'captur', 'renault|sm5': 'safrane',
+  };
+  function dubizzleUrl(lot) {
+    const key = lot.modelKey || '';
+    const [mk, base] = key.split('|');
+    const make = DZ_MAKE[mk] || (mk || String(lot.make || '').toLowerCase()).replace(/\s+/g, '-');
+    if (!make || make === 'other') return '';
+    const model = DZ_MODEL[key] || (base || '').replace(/\s+/g, '-');
+    const q = lot.year ? `?year__gte=${lot.year - 1}&year__lte=${lot.year + 1}` : '';
+    return `https://uae.dubizzle.com/motors/used-cars/${make}/${model ? model + '/' : ''}${q}`;
+  }
+  function extLinks(el, lot) {
+    if (!el || ME?.role !== 'admin') return;
+    const url = dubizzleUrl(lot);
+    if (url) el.insertAdjacentHTML('beforeend', `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener" title="Объявления этой модели в ОАЭ, год ±1">Похожие на Dubizzle ↗</a>`);
+  }
+
   // ------------------------------------------------------------ связь с каталогом
   const P = {
     fetchFull: async id => (await sb.from('lots').select('data').eq('id', id).single()).data?.data,
@@ -674,7 +697,7 @@
     bidPanel, renderBids, renderAdmin, salesPanel, saveSearch, favToggle, favNote,
     afterModal: el => hideKrw(el),
     fx: fxLine,
-    calcPanel, zipButtons,
+    calcPanel, zipButtons, extLinks,
   };
 
   sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT') loginScreen(); });

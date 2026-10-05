@@ -452,6 +452,7 @@ window.startCatalog = function (DATA, P) {
     P.bidPanel?.($('#bidBox'), l);
     P.calcPanel?.($('#calcBox'), l);
     P.zipButtons?.($('#zipBox'), l);
+    P.extLinks?.($('#zipBox'), l);
     P.afterModal?.($('#modalBox'));
     Promise.resolve(P.salesPanel?.($('#salesBox'), l)).then(() => P.afterModal?.($('#salesBox')));
     const show = k => {
