@@ -423,7 +423,11 @@ window.startCatalog = function (DATA, P) {
             ${photos.length > 1 ? '<button class="nav prev">‹</button><button class="nav next">›</button>' : ''}</div>
           <div class="strip">${photos.map((p, k) => `<img src="${esc(p)}" data-k="${k}" class="${k ? '' : 'on'}" loading="lazy" referrerpolicy="no-referrer" alt="">`).join('')}</div>
         </div>
-        <div>
+        <div class="m-actions">
+          <button class="btn ${isWish(l.id) ? '' : 'primary'}" id="mWish" ${BY_ID[l.id] ? '' : 'hidden'}>${isWish(l.id) ? '♥ В избранном' : '♡ В избранное'}</button>
+          <span id="zipBox"></span>
+        </div>
+        <div class="m-info">
           <h2 class="m-title">${esc(title(l))}</h2>
           <div class="m-sub">${esc(l.grade || '')}</div>
           <div class="tags">${(l.condition || []).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
@@ -434,12 +438,7 @@ window.startCatalog = function (DATA, P) {
           ${l.alsoOn?.length ? `<p class="hint" style="margin-top:12px">Этот же автомобиль на других аукционах: ${l.alsoOn.map(a => `<b>${esc(DATA.sources[a.source]?.name || a.source)}</b>${a.lotNo ? ' (лот ' + esc(a.lotNo) + ')' : ''}`).join(', ')}</p>` : ''}
           <div id="bidBox"></div>
           <div id="calcBox"></div>
-          <div class="m-actions">
-            <button class="btn ${isWish(l.id) ? '' : 'primary'}" id="mWish" ${BY_ID[l.id] ? '' : 'hidden'}>${isWish(l.id) ? '♥ В избранном' : '♡ В избранное'}</button>
-            <span id="zipBox"></span>
-          </div>
         </div>
-      </div>
       <div class="m-section">
         <h3>Описание</h3>
         ${l.notes ? `${l.notesOther ? `<div class="group-title">Описание на ${esc(DATA.sources[l.source]?.name || '')}</div>` : ''}<div class="notes">${esc(ru(l, 'notes'))}</div>${orig(l, 'notes')}` : '<p class="hint">Описания нет.</p>'}
@@ -447,6 +446,7 @@ window.startCatalog = function (DATA, P) {
         <h3>Аукционный лист / состояние</h3>
         ${sheetHtml(l)}
         <div id="salesBox"></div>
+      </div>
       </div>`;
     $('#modal').hidden = false;
     document.body.style.overflow = 'hidden';
