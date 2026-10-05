@@ -486,14 +486,12 @@
         <input name="login" placeholder="логин (латиница)" required autocapitalize="none">
         <input name="password" placeholder="пароль (от 8 символов)" required minlength="8">
         <input name="max_active_usd" type="number" placeholder="лимит активных ставок, $ (необязательно)">
-        <input name="commission_pct" type="number" step="0.1" min="0" placeholder="комиссия, %">
-        <input name="service_usd" type="number" min="0" placeholder="сервисные расходы, $">
-        <input name="freight_usd" type="number" min="0" placeholder="фрахт, $">
+        <div class="terms-cols">${termsFields({})}</div>
         <select name="role"><option value="partner">Партнёр</option><option value="admin">Администратор</option></select>
         <button class="btn primary">Создать</button><div class="bid-msg" id="pMsg"></div></form>
-      <table class="adm-bids partners"><tr><th>Имя</th><th>Логин</th><th>Роль</th><th>Комиссия</th><th>Сервис</th><th>Фрахт</th><th>Лимит</th><th>Был на сайте</th><th>Статус</th><th></th></tr>
+      <table class="adm-bids partners"><tr><th>Имя</th><th>Логин</th><th>Роль</th><th>Комиссия<br><span class="hint">Autohub / битые</span></th><th>Сервис<br><span class="hint">Autohub / битые</span></th><th>Фрахт<br><span class="hint">Autohub / битые</span></th><th>Лимит</th><th>Был на сайте</th><th>Статус</th><th></th></tr>
         ${partners.map(p => `<tr data-id="${p.id}"><td>${esc(p.display_name)}</td><td>${esc(p.login)}</td><td>${p.role === 'admin' ? 'админ' : 'партнёр'}</td>
-          <td>${+p.commission_pct ? p.commission_pct + '%' : '—'}</td><td>${p.service_usd ? usd(p.service_usd) : '—'}</td><td>${p.freight_usd ? usd(p.freight_usd) : '—'}</td>
+          <td>${pair(p.commission_pct, p.commission_pct_dmg, v => +v + '%')}</td><td>${pair(p.service_usd, p.service_usd_dmg, usd)}</td><td>${pair(p.freight_usd, p.freight_usd_dmg, usd)}</td>
           <td>${p.max_active_usd ? usd(p.max_active_usd) : '—'}</td><td>${seenAgo(p.last_seen_at)}${p.visits ? `<br><span class="hint">визитов: ${p.visits}</span>` : ''}</td><td>${p.is_active ? '<span class="g-good">активен</span>' : '<span class="g-bad">отключён</span>'}</td>
           <td><button class="link" data-act="terms">условия</button> · <button class="link" data-act="name">имя</button> · <button class="link" data-act="pass">пароль</button> · <button class="link" data-act="limit">лимит</button>
             ${p.id !== ME.id ? ` · <button class="link" data-act="toggle">${p.is_active ? 'отключить' : 'включить'}</button>` : ''}</td></tr>`).join('')}
@@ -504,7 +502,7 @@
       try {
         await adminCall({ action: 'create_partner', display_name: f.display_name.value, login: f.login.value, password: f.password.value,
                           role: f.role.value, max_active_usd: +f.max_active_usd.value || null,
-                          commission_pct: +f.commission_pct.value || 0, service_usd: +f.service_usd.value || 0, freight_usd: +f.freight_usd.value || 0 });
+                          ...readTerms(f) });
         PARTNERS = null;
         admPartners(body);
       } catch (err) { $('#pMsg').textContent = err.message; $('#pMsg').className = 'bid-msg err'; }
@@ -514,10 +512,8 @@
       const id = b.closest('tr').dataset.id, p = partners.find(x => x.id === id);
       try {
         if (b.dataset.act === 'terms') {
-          const pct = prompt(`Комиссия для ${p.display_name}, % от цены авто`, p.commission_pct ?? 0); if (pct === null) return;
-          const srv = prompt('Сервисные расходы, $', p.service_usd ?? 0); if (srv === null) return;
-          const fr = prompt('Фрахт, $', p.freight_usd ?? 0); if (fr === null) return;
-          await adminCall({ action: 'update_partner', id, commission_pct: +String(pct).replace(',', '.') || 0, service_usd: +srv || 0, freight_usd: +fr || 0 });
+          const t = await termsDialog(p); if (!t) return;
+          await adminCall({ action: 'update_partner', id, ...t });
           PARTNERS = null;
         }
         if (b.dataset.act === 'name') { const v = prompt('Имя для Telegram', p.display_name); if (v) await adminCall({ action: 'update_partner', id, display_name: v }); }
@@ -527,6 +523,32 @@
         admPartners(body);
       } catch (err) { alert(err.message); }
     };
+  }
+
+  // условия партнёра: отдельно для Autohub (целые) и битых
+  const pair = (a, b, f) => (+a || +b) ? `${+a ? f(a) : '—'} / ${+b ? f(b) : '—'}` : '—';
+  const termsFields = p => [['', 'Autohub (целые)'], ['_dmg', 'Битые']].map(([sfx, title]) => `
+      <fieldset class="terms-set"><legend>${title}</legend>
+        <label>Комиссия, %<input name="commission_pct${sfx}" type="number" step="0.1" min="0" value="${p['commission_pct' + sfx] ?? ''}" placeholder="0"></label>
+        <label>Сервисные расходы, $<input name="service_usd${sfx}" type="number" min="0" value="${p['service_usd' + sfx] ?? ''}" placeholder="0"></label>
+        <label>Фрахт, $<input name="freight_usd${sfx}" type="number" min="0" value="${p['freight_usd' + sfx] ?? ''}" placeholder="0"></label>
+      </fieldset>`).join('');
+  const readTerms = f => Object.fromEntries(['commission_pct', 'service_usd', 'freight_usd', 'commission_pct_dmg', 'service_usd_dmg', 'freight_usd_dmg']
+    .map(k => [k, +String(f[k].value).replace(',', '.') || 0]));
+  function termsDialog(p) {
+    return new Promise(resolve => {
+      const d = document.createElement('div');
+      d.className = 'terms-dlg';
+      d.innerHTML = `<form class="terms-box"><h3>Условия · ${esc(p.display_name)}</h3>
+          <div class="terms-cols">${termsFields(p)}</div>
+          <div class="terms-btns"><button type="button" class="btn" data-x>Отмена</button><button class="btn primary">Сохранить</button></div></form>`;
+      document.body.appendChild(d);
+      const done = v => { d.remove(); resolve(v); };
+      d.querySelector('[data-x]').onclick = () => done(null);
+      d.onclick = e => { if (e.target === d) done(null); };
+      d.querySelector('form').onsubmit = e => { e.preventDefault(); done(readTerms(e.target)); };
+      d.querySelector('input').focus();
+    });
   }
 
   function seenAgo(t) {
@@ -569,7 +591,10 @@
 
   // ------------------------------------------------------------ калькуляция под условия партнёра
   let PARTNERS = null;                  // для админа: условия всех партнёров
-  const terms = p => ({ pct: +(p?.commission_pct || 0), service: +(p?.service_usd || 0), freight: +(p?.freight_usd || 0) });
+  const terms = (p, lot) => {
+    const s = lot?.category === 'damaged' ? '_dmg' : '';
+    return { pct: +(p?.['commission_pct' + s] || 0), service: +(p?.['service_usd' + s] || 0), freight: +(p?.['freight_usd' + s] || 0) };
+  };
   async function calcPanel(el, lot) {
     if (!el) return;
     const isAdm = ME.role === 'admin';
@@ -577,7 +602,7 @@
     const startUsd = lot.category !== 'damaged' && lot.priceKRW ? Math.round(lot.priceKRW / RATE) : null;
     const base = MY[lot.id]?.amount_usd || startUsd || '';
     el.innerHTML = `<div class="calc">
-        <div class="calc-h"><b>Калькуляция</b>${isAdm ? `<select id="calcWho">${(PARTNERS || []).map(p => `<option value="${p.id}">${esc(p.display_name)}</option>`).join('')}</select>` : '<span class="hint">по вашим условиям</span>'}</div>
+        <div class="calc-h"><b>Калькуляция</b>${isAdm ? `<select id="calcWho">${(PARTNERS || []).map(p => `<option value="${p.id}">${esc(p.display_name)}</option>`).join('')}</select>` : `<span class="hint">по вашим условиям · ${lot.category === 'damaged' ? 'битые' : 'Autohub'}</span>`}</div>
         <label class="calc-row"><span>Цена автомобиля</span><span class="calc-in">$<input type="number" id="calcPrice" min="0" step="50" value="${base}" placeholder="сумма"></span></label>
         <div class="calc-row"><span>Комиссия <b id="calcPct"></b></span><span id="calcFee"></span></div>
         <div class="calc-row"><span>Сервисные расходы</span><span id="calcSrv"></span></div>
@@ -587,7 +612,7 @@
         <p class="hint" id="calcNote"></p></div>`;
     const upd = () => {
       const who = isAdm ? (PARTNERS || []).find(p => p.id === $('#calcWho')?.value) : ME;
-      const t = terms(who), price = +$('#calcPrice').value || 0;
+      const t = terms(who, lot), price = +$('#calcPrice').value || 0;
       const fee = Math.round(price * t.pct / 100);
       $('#calcPct').textContent = t.pct ? `${t.pct}%` : '';
       $('#calcFee').textContent = usd(fee); $('#calcSrv').textContent = usd(t.service); $('#calcFr').textContent = usd(t.freight);

@@ -300,6 +300,18 @@ body.locked .layout, body.locked .foot { visibility: hidden; }
 .foot { text-align: center; color: var(--muted); font-size: 12px; padding: 28px 16px 40px; }
 
 /* ---------------- мобильная версия ---------------- */
+/* условия партнёра: Autohub / битые */
+.terms-set { border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px 12px 12px; margin: 0; display: grid; gap: 8px; min-width: 0; }
+.terms-set legend { font-size: 12px; font-weight: 600; color: var(--ink-2); padding: 0 4px; }
+.terms-set label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.terms-set input { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.terms-dlg { position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 0, .4); display: grid; place-items: center; padding: 16px; }
+.terms-box { background: var(--surface); border-radius: var(--r); padding: 20px; width: min(560px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; box-shadow: var(--shadow-hover); }
+.terms-box h3 { margin: 0 0 14px; font-family: var(--display); }
+.terms-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.terms-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+@media (max-width: 520px) { .terms-cols { grid-template-columns: 1fr; } }
+
 /* пересчёт в другие валюты */
 .fx { margin-top: 6px; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .fx sup { color: var(--muted); margin-left: 1px; }
