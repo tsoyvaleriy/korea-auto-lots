@@ -693,10 +693,42 @@
     return `https://uae.dubizzle.com/motors/used-cars/${make}/${model ? model + '/' : ''}${p.length ? '?' + p.join('&') : ''}`;
   }
   const fmtKm = n => Math.round(n).toLocaleString('ru-RU');
-  function extLinks(el, lot) {
+  // сравнение с рынком (только админ): статистика Autowini, под ней ссылка на похожие на Dubizzle
+  const median = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : null; };
+  function awExamples(list, key) {
+    const s = [...list].sort((a, b) => a[key] - b[key]);
+    const pick = s.length >= 3 ? [['дешёвый', s[0]], ['средний', s[Math.floor(s.length / 2)]], ['дорогой', s[s.length - 1]]]
+      : s.map((x, k) => [k ? 'ещё' : 'пример', x]);
+    return pick.map(([t, x]) => `<li><span class="hint">${t}</span> <a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.name || x.model || '')}</a>
+      · ${x.mileage ? fmtKm(x.mileage) + ' км' : 'пробег —'} · <b>${usd(x[key])}</b></li>`).join('');
+  }
+  async function awBlock(lot) {
+    if (!lot.modelKey || !lot.year) return '';
+    const { data } = await sb.from('comp_items').select('*').eq('model_key', lot.modelKey)
+      .gte('year', lot.year - 1).lte('year', lot.year + 1).limit(1000);
+    const all = data || [];
+    const [a, b] = kmRange(lot.mileage);
+    const near = b ? all.filter(x => x.mileage == null || (x.mileage >= a && x.mileage <= b)) : all;
+    const list = near.length ? near : all;
+    const kmNote = b ? (near.length ? `пробег ${fmtKm(a)}–${fmtKm(b)} км` : 'с похожим пробегом нет — показаны все пробеги') : 'пробег любой';
+    const sold = list.filter(x => x.status !== 'live' && x.final_usd > 0);
+    const live = list.filter(x => x.status === 'live' && x.start_usd > 0);
+    const stats = arr => `мин <b>${usd(Math.min(...arr))}</b> · медиана <b>${usd(median(arr))}</b> · макс <b>${usd(Math.max(...arr))}</b>`;
+    return `<div class="mk-src"><div class="mk-h"><b>Autowini</b><span class="hint">${esc(String(lot.year - 1))}–${esc(String(lot.year + 1))} г., ${kmNote}</span></div>
+      ${sold.length ? `<div class="mk-row">Итоги торгов (${sold.length}): ${stats(sold.map(x => x.final_usd))}</div><ul class="mk-ex">${awExamples(sold, 'final_usd')}</ul>`
+        : '<div class="mk-row hint">Итогов торгов по этой модели пока нет — статистика копится после каждых торгов.</div>'}
+      ${live.length ? `<div class="mk-row">Сейчас на торгах (${live.length}), стартовые цены: ${stats(live.map(x => x.start_usd))}</div><ul class="mk-ex">${awExamples(live, 'start_usd')}</ul>`
+        : '<div class="mk-row hint">Сейчас похожих лотов на торгах нет.</div>'}</div>`;
+  }
+  async function extLinks(el, lot) {
     if (!el || ME?.role !== 'admin') return;
     const url = dubizzleUrl(lot);
-    if (url) el.insertAdjacentHTML('beforeend', `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener" title="Объявления этой модели в ОАЭ: год ±1, пробег ${(() => { const [a, b] = kmRange(lot.mileage); return b ? `${fmtKm(a)}–${fmtKm(b)} км` : 'любой'; })()}">Похожие на Dubizzle ↗</a>`);
+    el.innerHTML = `<div class="market"><div class="mk-title">Сравнение с рынком <span class="hint">видно только админу</span></div>
+      <div id="mkAw"><p class="hint">Загружаю Autowini…</p></div>
+      ${url ? `<div class="mk-dz"></div>` : ''}</div>`;
+    if (url) el.querySelector('.mk-dz').innerHTML = `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener" title="Объявления этой модели в ОАЭ: год ±1, пробег ${(() => { const [a, b] = kmRange(lot.mileage); return b ? `${fmtKm(a)}–${fmtKm(b)} км` : 'любой'; })()}">Похожие на Dubizzle ↗</a>`;
+    try { el.querySelector('#mkAw').innerHTML = await awBlock(lot) || '<p class="hint">Нет данных о модели для сравнения.</p>'; }
+    catch (e) { el.querySelector('#mkAw').innerHTML = `<p class="hint">Autowini: ${esc(e.message)}</p>`; }
   }
 
   // ------------------------------------------------------------ связь с каталогом

@@ -430,6 +430,7 @@ window.startCatalog = function (DATA, P) {
           ${l.category === 'damaged' ? '' : `<div class="m-price">${l.usd ? `<b>$${fmt(l.usd)}</b><span>стартовая цена</span>${P.fx ? P.fx(l.usd) : ''}` : `<span>без стартовой цены${l.source === 'autohub_pub' ? ' — закрытые торги, ставки вслепую' : ''}</span>`}</div>`}
           ${l.feeKRW ? `<p class="hint">+ комиссия аукциона $${fmt(Math.round(l.feeKRW / RATE))}</p>` : ''}
           <dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
+          <div id="marketBox"></div>
           ${l.alsoOn?.length ? `<p class="hint" style="margin-top:12px">Этот же автомобиль на других аукционах: ${l.alsoOn.map(a => `<b>${esc(DATA.sources[a.source]?.name || a.source)}</b>${a.lotNo ? ' (лот ' + esc(a.lotNo) + ')' : ''}`).join(', ')}</p>` : ''}
           <div id="bidBox"></div>
           <div id="calcBox"></div>
@@ -452,7 +453,7 @@ window.startCatalog = function (DATA, P) {
     P.bidPanel?.($('#bidBox'), l);
     P.calcPanel?.($('#calcBox'), l);
     P.zipButtons?.($('#zipBox'), l);
-    P.extLinks?.($('#zipBox'), l);
+    P.extLinks?.($('#marketBox'), l);
     P.afterModal?.($('#modalBox'));
     Promise.resolve(P.salesPanel?.($('#salesBox'), l)).then(() => P.afterModal?.($('#salesBox')));
     const show = k => {

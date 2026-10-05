@@ -312,6 +312,15 @@ body.locked .layout, body.locked .foot { visibility: hidden; }
 .terms-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 @media (max-width: 520px) { .terms-cols { grid-template-columns: 1fr; } }
 
+/* сравнение с рынком (админ) */
+.market { margin-top: 16px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
+.mk-title { font-weight: 700; margin-bottom: 10px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.mk-h { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; margin-bottom: 6px; }
+.mk-row { font-size: 13px; margin: 6px 0 4px; }
+.mk-ex { margin: 0 0 6px; padding-left: 18px; font-size: 13px; }
+.mk-ex li { margin: 3px 0; }
+.mk-dz { margin-top: 12px; }
+
 /* пересчёт в другие валюты */
 .fx { margin-top: 6px; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .fx sup { color: var(--muted); margin-left: 1px; }
