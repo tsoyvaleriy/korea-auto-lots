@@ -217,6 +217,9 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
 .diagram { display: grid; grid-template-columns: minmax(180px, 280px) 1fr; gap: 24px; align-items: start; margin: 10px 0 18px; }
 .diagram svg { width: 100%; height: auto; }
 .lay { grid-template-columns: minmax(300px, 1.7fr) 1fr; }
+/* в окне лота схема Autohub под фото: картинка во всю ширину колонки, таблица кодов и список — под ней */
+.m-grid > .m-section .lay { grid-template-columns: 1fr; }
+.m-grid > .m-section .lay-box { max-width: 560px; }
 .lay-box { position: relative; width: 100%; background: #fff; border-radius: var(--r-sm); }
 .lay-box img { position: absolute; inset: 0; width: 100%; height: 100%; filter: contrast(1.6); }
 .lay-code { position: absolute; transform: translate(-50%, -50%); font-weight: 800; font-size: 13px; color: #1f2937; white-space: nowrap; }
