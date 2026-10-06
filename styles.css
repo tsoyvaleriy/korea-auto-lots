@@ -320,6 +320,13 @@ body.locked .layout, body.locked .foot { visibility: hidden; }
 .terms-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 @media (max-width: 520px) { .terms-cols { grid-template-columns: 1fr; } }
 
+/* менеджеры (видит владелец) */
+.adm-mgrs { margin: 22px 0 6px; }
+.adm-mgrs h3 { font-family: var(--display); margin: 0 0 10px; }
+.adm-filter { margin: 16px 0 10px; }
+.adm-filter select, #pMgrWrap select { margin-left: 8px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+#pMgrWrap { display: flex; align-items: center; }
+
 /* язык сайта */
 .lang-sw { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line-2); border-radius: 999px; }
 .lang-sw button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 999px; cursor: pointer; }

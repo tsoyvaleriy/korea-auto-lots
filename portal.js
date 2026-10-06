@@ -19,6 +19,10 @@
   const ts = s => s ? new Date(/[zZ]|[+-]\d\d:\d\d$/.test(s) ? s : s + '+09:00').getTime() : null;
   const dateStr = s => s ? new Date(ts(s)).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
 
+  // роли: владелец (admin) — всё; менеджер (manager) — то же, но только со своими партнёрами
+  const STAFF = () => ['admin', 'manager'].includes(ME?.role);
+  const OWNER = () => ME?.role === 'admin';
+  const ROLE_RU = { admin: 'владелец', manager: 'менеджер', partner: 'партнёр' };
   let ME = null, CAT = null, RATE = 1325, RATE_INFO = null, FX = null;
   // справочный пересчёт долларовой суммы в EUR / AED / RUB (рыночный курс, как в Google)
   const FX_CUR = [['EUR', '€'], ['AED', 'AED'], ['RUB', '₽']];
@@ -253,17 +257,17 @@
     const tabs = $('#tabs');
     if (!tabs.querySelector('[data-tab=bids]'))
       tabs.insertAdjacentHTML('beforeend', `<button data-tab="bids" class="in-cab">Мои ставки <span></span></button>` +
-        (ME.role === 'admin' ? `<button data-tab="admin">Админ</button>` : ''));
+        (STAFF() ? `<button data-tab="admin">Админ</button>` : ''));
     // личный кабинет — кнопка с инициалами справа вверху
     const initials = String(ME.display_name || ME.login || '?').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
     if (!$('#who')) $('#themeBtn').insertAdjacentHTML('afterend', `<div id="who">
       <button class="me-btn" id="meBtn" aria-haspopup="true" aria-expanded="false" title="Личный кабинет">
         <span class="me-av">${esc(initials)}</span><span class="me-name">${esc(ME.display_name)}</span><span class="me-caret">▾</span></button>
       <div class="me-menu" id="meMenu" hidden>
-        <div class="me-head"><b>${esc(ME.display_name)}</b><span>${ME.role === 'admin' ? 'администратор' : 'партнёр'} · ${esc(ME.login || '')}</span></div>
+        <div class="me-head"><b>${esc(ME.display_name)}</b><span>${ROLE_RU[ME.role] || 'партнёр'} · ${esc(ME.login || '')}</span></div>
         <button data-go="bids">👤 Личный кабинет</button>
         <button data-go="wish">♥ Избранное</button>
-        ${ME.role === 'admin' ? '<button data-go="admin">⚙️ Админ-панель</button>' : ''}
+        ${STAFF() ? '<button data-go="admin">⚙️ Админ-панель</button>' : ''}
         <button data-video>▶ Видеоинструкция</button>
         <hr><button id="btnLogout" class="me-out">Выйти</button>
       </div></div>`);
@@ -426,7 +430,7 @@
   async function admBids(body) {
     const [{ data: bids }, { data: profs }, { data: res }] = await Promise.all([
       sb.from('bids').select('*').order('updated_at', { ascending: false }),
-      sb.from('profiles').select('id,display_name,login'),
+      sb.from('profiles').select('id,display_name,login,manager_id,role'),
       sb.from('results').select('*'),
     ]);
     const P_ = Object.fromEntries((profs || []).map(p => [p.id, p]));
@@ -447,7 +451,7 @@
             <div class="hint">Торги ${dateStr(x.ends)} KST · ${timer(x.ends)}</div></div>
           <button class="btn" data-open="${esc(x.id)}">Лот</button></div>
         <table class="adm-bids"><tr><th>Партнёр</th><th>Ставка</th><th>Обновлена</th><th>Комментарий</th></tr>
-          ${sorted.map((b, i) => `<tr class="${i === 0 ? 'lead' : ''}"><td>${esc(P_[b.partner_id]?.display_name || '?')}</td><td><b>${usd(b.amount_usd)}</b></td>
+          ${sorted.map((b, i) => `<tr class="${i === 0 ? 'lead' : ''}"><td>${esc(P_[b.partner_id]?.display_name || '?')}${OWNER() && P_[P_[b.partner_id]?.manager_id]?.role === 'manager' ? `<br><span class="hint">менеджер: ${esc(P_[P_[b.partner_id].manager_id].display_name)}</span>` : ''}</td><td><b>${usd(b.amount_usd)}</b></td>
             <td>${dateStr(b.updated_at)}</td><td>${esc(b.comment || '')}</td></tr>`).join('')}
         </table>
         ${r ? `<div class="adm-res">Итог: <b>${esc(r.winner_partner_id ? (P_[r.winner_partner_id]?.display_name || 'партнёр') : (r.winner_label || 'сторонний покупатель'))}</b> за <b>${usd(r.price_usd)}</b>
@@ -499,39 +503,65 @@
     a.click();
   }
 
+  let PF = '';                                 // фильтр владельца: партнёры какого менеджера показывать
   async function admPartners(body) {
-    const { partners } = await adminCall({ action: 'list_partners' });
-    body.innerHTML = `<form class="adm-new" id="pNew">
-        <h3>Новый партнёр</h3>
-        <input name="display_name" placeholder="Имя для Telegram, напр. «Алексей (Бишкек)»" required>
-        <input name="login" placeholder="логин (латиница)" required autocapitalize="none">
-        <input name="password" placeholder="пароль (от 8 символов)" required minlength="8">
-        <input name="max_active_usd" type="number" placeholder="лимит активных ставок, $ (необязательно)">
-        <div class="terms-cols">${termsFields({})}</div>
-        <select name="role"><option value="partner">Партнёр</option><option value="admin">Администратор</option></select>
-        <button class="btn primary">Создать</button><div class="bid-msg" id="pMsg"></div></form>
-      <table class="adm-bids partners"><tr><th>Имя</th><th>Логин</th><th>Роль</th><th>Комиссия<br><span class="hint">Autohub / битые</span></th><th>Сервис<br><span class="hint">Autohub / битые</span></th><th>Фрахт<br><span class="hint">Autohub / битые</span></th><th>Лимит</th><th>Был на сайте</th><th>Статус</th><th></th></tr>
-        ${partners.map(p => `<tr data-id="${p.id}"><td>${esc(p.display_name)}</td><td>${esc(p.login)}</td><td>${p.role === 'admin' ? 'админ' : 'партнёр'}</td>
+    const { partners: all } = await adminCall({ action: 'list_partners' });
+    const owner = OWNER();
+    const managers = owner ? all.filter(p => p.role === 'manager' || p.role === 'admin') : [];
+    const mName = id => { const m = all.find(x => x.id === id); return m ? (m.role === 'admin' ? 'я (владелец)' : m.display_name) : '—'; };
+    const partners = all.filter(p => p.role === 'partner' && (!PF || p.manager_id === PF));
+    const cnt = id => all.filter(p => p.role === 'partner' && p.manager_id === id).length;
+    const mOpts = sel => managers.map(m => `<option value="${m.id}" ${m.id === sel ? 'selected' : ''}>${esc(m.role === 'admin' ? 'Я (владелец)' : m.display_name)}</option>`).join('');
+    const row = p => `<tr data-id="${p.id}"><td>${esc(p.display_name)}</td><td>${esc(p.login)}</td>
+          ${owner ? `<td>${p.role === 'partner' ? esc(mName(p.manager_id)) : `<span class="hint">${ROLE_RU[p.role]}</span>`}</td>` : ''}
           <td>${pair(p.commission_pct, p.commission_pct_dmg, v => +v + '%')}</td><td>${pair(p.service_usd, p.service_usd_dmg, usd)}</td><td>${pair(p.freight_usd, p.freight_usd_dmg, usd)}</td>
           <td>${p.max_active_usd ? usd(p.max_active_usd) : '—'}</td><td>${seenAgo(p.last_seen_at)}${p.visits ? `<br><span class="hint">визитов: ${p.visits}</span>` : ''}</td><td>${p.is_active ? '<span class="g-good">активен</span>' : '<span class="g-bad">отключён</span>'}</td>
           <td><button class="link" data-act="terms">условия</button> · <button class="link" data-act="name">имя</button> · <button class="link" data-act="pass">пароль</button> · <button class="link" data-act="limit">лимит</button>
-            ${p.id !== ME.id ? ` · <button class="link" data-act="toggle">${p.is_active ? 'отключить' : 'включить'}</button>` : ''}</td></tr>`).join('')}
+            ${p.id !== ME.id ? ` · <button class="link" data-act="toggle">${p.is_active ? 'отключить' : 'включить'}</button>` : ''}
+            ${owner ? ` · <button class="link" data-act="move">передать</button> · <button class="link danger" data-act="del">удалить</button>` : ''}</td></tr>`;
+    body.innerHTML = `<form class="adm-new" id="pNew">
+        <h3>${owner ? 'Новый партнёр или менеджер' : 'Новый партнёр'}</h3>
+        ${owner ? `<select name="role" id="pRole"><option value="partner">Партнёр</option><option value="manager">Менеджер</option></select>` : ''}
+        <input name="display_name" placeholder="Имя для Telegram, напр. «Алексей (Бишкек)»" required>
+        <input name="login" placeholder="логин (латиница)" required autocapitalize="none">
+        <input name="password" placeholder="пароль (от 8 символов)" required minlength="8">
+        ${owner ? `<label class="hint" id="pMgrWrap">Менеджер партнёра<select name="manager_id">${mOpts(ME.id)}</select></label>` : ''}
+        <input name="max_active_usd" type="number" placeholder="лимит активных ставок, $ (необязательно)">
+        <div class="terms-cols" id="pTerms">${termsFields({})}</div>
+        <button class="btn primary">Создать</button><div class="bid-msg" id="pMsg"></div></form>
+      ${owner ? `<div class="adm-mgrs"><h3>Менеджеры</h3>
+        <table class="adm-bids mgrs"><tr><th>Менеджер</th><th>Логин</th><th>Партнёров</th><th>Telegram</th><th>Был на сайте</th><th>Статус</th><th></th></tr>
+          ${managers.map(m => `<tr data-id="${m.id}"><td>${esc(m.role === 'admin' ? m.display_name + ' (вы)' : m.display_name)}</td><td>${esc(m.login)}</td>
+            <td><button class="link" data-act="filter">${cnt(m.id)}</button></td><td>${m.telegram_chat_id ? '<span class="g-good">подключён</span>' : '<span class="hint">нет</span>'}</td>
+            <td>${seenAgo(m.last_seen_at)}</td><td>${m.is_active ? '<span class="g-good">активен</span>' : '<span class="g-bad">отключён</span>'}</td>
+            <td>${m.role === 'manager' ? `<button class="link" data-act="name">имя</button> · <button class="link" data-act="pass">пароль</button> · <button class="link" data-act="moveall">передать всех</button>
+              · <button class="link" data-act="toggle">${m.is_active ? 'отключить' : 'включить'}</button> · <button class="link danger" data-act="del">удалить</button>` : ''}</td></tr>`).join('')}
+        </table></div>
+        <div class="adm-filter"><label class="hint">Показать партнёров:
+          <select id="pFilter"><option value="">всех менеджеров</option>${managers.map(m => `<option value="${m.id}" ${m.id === PF ? 'selected' : ''}>${esc(m.role === 'admin' ? 'моих (владелец)' : m.display_name)}</option>`).join('')}</select></label></div>` : ''}
+      <table class="adm-bids partners"><tr><th>Имя</th><th>Логин</th>${owner ? '<th>Менеджер</th>' : ''}<th>Комиссия<br><span class="hint">Autohub / битые</span></th><th>Сервис<br><span class="hint">Autohub / битые</span></th><th>Фрахт<br><span class="hint">Autohub / битые</span></th><th>Лимит</th><th>Был на сайте</th><th>Статус</th><th></th></tr>
+        ${partners.map(row).join('') || `<tr><td colspan="10" class="hint">Партнёров пока нет</td></tr>`}
       </table>`;
-    $('#pNew').onsubmit = async e => {
+    const f0 = $('#pNew');
+    const syncRole = () => { const m = f0.role?.value === 'manager'; $('#pMgrWrap')?.toggleAttribute('hidden', m); $('#pTerms').hidden = m; };
+    f0.role?.addEventListener('change', syncRole);
+    $('#pFilter')?.addEventListener('change', e => { PF = e.target.value; admPartners(body); });
+    f0.onsubmit = async e => {
       e.preventDefault();
       const f = e.target;
       try {
         await adminCall({ action: 'create_partner', display_name: f.display_name.value, login: f.login.value, password: f.password.value,
-                          role: f.role.value, max_active_usd: +f.max_active_usd.value || null,
+                          role: f.role?.value || 'partner', manager_id: f.manager_id?.value || null, max_active_usd: +f.max_active_usd.value || null,
                           ...readTerms(f) });
         PARTNERS = null;
         admPartners(body);
       } catch (err) { $('#pMsg').textContent = err.message; $('#pMsg').className = 'bid-msg err'; }
     };
-    body.querySelector('.partners').onclick = async e => {
+    const act = async e => {
       const b = e.target.closest('[data-act]'); if (!b) return;
-      const id = b.closest('tr').dataset.id, p = partners.find(x => x.id === id);
+      const id = b.closest('tr').dataset.id, p = all.find(x => x.id === id);
       try {
+        if (b.dataset.act === 'filter') { PF = id; return admPartners(body); }
         if (b.dataset.act === 'terms') {
           const t = await termsDialog(p); if (!t) return;
           await adminCall({ action: 'update_partner', id, ...t });
@@ -541,9 +571,41 @@
         if (b.dataset.act === 'pass') { const v = prompt('Новый пароль (от 8 символов)'); if (v) await adminCall({ action: 'update_partner', id, password: v }); }
         if (b.dataset.act === 'limit') { const v = prompt('Лимит активных ставок, $ (пусто — без лимита)', p.max_active_usd || ''); if (v !== null) await adminCall({ action: 'update_partner', id, max_active_usd: +v || null }); }
         if (b.dataset.act === 'toggle' && confirm(`${p.is_active ? 'Отключить' : 'Включить'} ${p.display_name}?`)) await adminCall({ action: 'update_partner', id, is_active: !p.is_active });
+        if (b.dataset.act === 'move') {
+          const to = await pickManager(managers.filter(m => m.id !== p.manager_id), `Передать партнёра «${p.display_name}» менеджеру`); if (!to) return;
+          await adminCall({ action: 'transfer_partners', ids: [id], manager_id: to });
+        }
+        if (b.dataset.act === 'moveall') {
+          const to = await pickManager(managers.filter(m => m.id !== id), `Передать всех партнёров «${p.display_name}» (${cnt(id)}) менеджеру`); if (!to) return;
+          await adminCall({ action: 'transfer_partners', from_manager: id, manager_id: to });
+        }
+        if (b.dataset.act === 'del') {
+          const what = p.role === 'manager' ? `менеджера «${p.display_name}»? Его партнёры (${cnt(id)}) перейдут к вам.` : `партнёра «${p.display_name}»? Его ставки и избранное будут удалены.`;
+          if (!confirm(`Удалить ${what} Это нельзя отменить.`)) return;
+          await adminCall({ action: 'delete_partner', id });
+        }
+        PARTNERS = null;
         admPartners(body);
       } catch (err) { alert(err.message); }
     };
+    body.querySelector('.partners').onclick = act;
+    body.querySelector('.mgrs')?.addEventListener('click', act);
+  }
+
+  function pickManager(list, title) {
+    return new Promise(resolve => {
+      if (!list.length) { alert('Нет других менеджеров — создайте менеджера в форме выше.'); return resolve(null); }
+      const d = document.createElement('div');
+      d.className = 'terms-dlg';
+      d.innerHTML = `<form class="terms-box"><h3>${esc(title)}</h3>
+          <select name="m" style="width:100%;padding:10px;border-radius:8px">${list.map(m => `<option value="${m.id}">${esc(m.role === 'admin' ? 'Я (владелец)' : m.display_name)}</option>`).join('')}</select>
+          <div class="terms-btns"><button type="button" class="btn" data-x>Отмена</button><button class="btn primary">Передать</button></div></form>`;
+      document.body.appendChild(d);
+      const done = v => { d.remove(); resolve(v); };
+      d.querySelector('[data-x]').onclick = () => done(null);
+      d.onclick = e => { if (e.target === d) done(null); };
+      d.querySelector('form').onsubmit = e => { e.preventDefault(); done(e.target.m.value); };
+    });
   }
 
   // условия партнёра: отдельно для Autohub (целые) и битых
@@ -618,7 +680,7 @@
   };
   async function calcPanel(el, lot) {
     if (!el) return;
-    const isAdm = ME.role === 'admin';
+    const isAdm = STAFF();
     if (isAdm && !PARTNERS) PARTNERS = (await adminCall({ action: 'list_partners' }).catch(() => ({ partners: [] }))).partners.filter(p => p.role === 'partner');
     const startUsd = lot.category !== 'damaged' && lot.priceKRW ? Math.round(lot.priceKRW / RATE) : null;
     const base = MY[lot.id]?.amount_usd || startUsd || '';
@@ -747,7 +809,7 @@
     if (!el) return;
     const url = dubizzleUrl(lot);
     const dzBtn = url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener" title="Объявления этой модели в ОАЭ: год ±1, пробег ${(() => { const [a, b] = kmRange(lot.mileage); return b ? `${fmtKm(a)}–${fmtKm(b)} км` : 'любой'; })()}">Похожие на Dubizzle ↗</a>` : '';
-    if (ME?.role !== 'admin') {              // партнёрам — только ссылка на похожие объявления Dubizzle
+    if (!STAFF()) {                          // партнёрам — только ссылка на похожие объявления Dubizzle
       if (dzBtn) el.innerHTML = `<div class="mk-dz">${dzBtn}</div>`;
       return;
     }
