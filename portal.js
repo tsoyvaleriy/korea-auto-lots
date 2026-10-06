@@ -40,6 +40,7 @@
       g.id = 'login';
       g.innerHTML = `<form class="gate-box">
           <div class="brand">Korea<b>Auto</b>Lots</div>
+          ${I18N.switcher()}
           <p>Вход для партнёров</p>
           <input id="lgLogin" autocomplete="username" placeholder="Логин" autocapitalize="none" autofocus>
           <input id="lgPass" type="password" autocomplete="current-password" placeholder="Пароль">
@@ -49,6 +50,7 @@
             Нажмите <b>⋮</b> или <b>⋯</b> вверху → <b>«Открыть в браузере»</b>, или включите в Telegram:
             Настройки → Данные и память → <b>Открывать ссылки во внешнем браузере</b>.</div>` : ''}
           <div class="gate-tip soft">Совет: добавьте сайт на главный экран телефона (Поделиться → «На экран Домой») — вход сохранится как в приложении.</div>
+          <button type="button" class="link gate-video" onclick="KAL_showVideo()">▶ Как пользоваться сайтом — видео</button>
         </form>`;
       document.body.appendChild(g);
       g.querySelector('form').onsubmit = async e => {
@@ -63,6 +65,21 @@
     }
     if (err) $('#lgErr').textContent = err;
   }
+
+  // видеоинструкция на языке сайта (если нужного языка нет — русская)
+  function showVideo() {
+    const lang = I18N.lang, d = document.createElement('div');
+    d.className = 'vid-dlg';
+    d.innerHTML = `<div class="vid-box"><button class="vid-x" aria-label="Закрыть">✕</button>
+      <video controls autoplay playsinline preload="metadata" poster="media/lesson_poster.jpg">
+        <source src="media/lesson_${lang}.mp4" type="video/mp4"><source src="media/lesson_ru.mp4" type="video/mp4"></video></div>`;
+    const close = () => { d.querySelector('video').pause(); d.remove(); document.removeEventListener('keydown', esc); };
+    const esc = e => { if (e.key === 'Escape') close(); };
+    d.onclick = e => { if (e.target === d || e.target.closest('.vid-x')) close(); };
+    document.addEventListener('keydown', esc);
+    document.body.appendChild(d);
+  }
+  window.KAL_showVideo = showVideo;
 
   async function logout() { await sb.auth.signOut(); location.reload(); }
 
@@ -223,6 +240,8 @@
     const M = Object.fromEntries((meta.data || []).map(r => [r.key, r.value]));
     P.favs = await loadFavs();
     RATE = M.rate?.usd || RATE; RATE_INFO = M.rate || null; FX = M.fx || null;
+    I18N.addMap(M.i18n_terms);                 // термины из данных лотов (EN/AR)
+    if ((ME.lang || 'ru') !== I18N.lang) sb.rpc('set_my_lang', { l: I18N.lang }).then(() => {}, () => {});   // язык сообщений бота
     setupHeader();
     CAT = window.startCatalog({ lots: cards.map(r => r.card), sources: M.sources || {}, rate: M.rate || { usd: RATE }, minYear: M.minYear }, P);
     setInterval(tick, 1000);
@@ -245,6 +264,7 @@
         <button data-go="bids">👤 Личный кабинет</button>
         <button data-go="wish">♥ Избранное</button>
         ${ME.role === 'admin' ? '<button data-go="admin">⚙️ Админ-панель</button>' : ''}
+        <button data-video>▶ Видеоинструкция</button>
         <hr><button id="btnLogout" class="me-out">Выйти</button>
       </div></div>`);
     const menu = $('#meMenu'), btn = $('#meBtn');
@@ -255,6 +275,7 @@
     menu.querySelectorAll('[data-go]').forEach(b => b.onclick = () => {
       close(); $(`#tabs [data-tab="${b.dataset.go}"]`)?.click(); window.scrollTo(0, 0);
     });
+    menu.querySelector('[data-video]').onclick = () => { close(); showVideo(); };
     $('#btnLogout').onclick = logout;
   }
 
@@ -744,7 +765,11 @@
 
   // ------------------------------------------------------------ связь с каталогом
   const P = {
-    fetchFull: async id => (await sb.from('lots').select('data').eq('id', id).single()).data?.data,
+    fetchFull: async id => {
+      const d = (await sb.from('lots').select('data').eq('id', id).single()).data?.data;
+      if (d?.tr) I18N.addMap(d.tr[I18N.lang]);    // длинные тексты лота (описания) на выбранном языке
+      return d;
+    },
     myBid: id => MY[id] && (!MY[id].outcome || MY[id].outcome === 'pending') ? MY[id].amount_usd : null,
     activeBidsCount: () => Object.values(MY).filter(b => b.outcome === 'pending' && !(ts(b.ends_at) < Date.now())).length,
     bidPanel, renderBids, renderAdmin, salesPanel, saveSearch, favToggle, favNote,

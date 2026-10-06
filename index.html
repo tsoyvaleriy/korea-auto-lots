@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Korea Auto Lots</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@300;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@300;600;700;800&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/icon-192.png">
@@ -14,13 +14,15 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="KoreaAutoLots">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="stylesheet" href="styles.css?v=72bb019ef1">
+<link rel="stylesheet" href="styles.css?v=2665562a9c">
 <script>
   // тема: сохранённая или системная — до отрисовки, чтобы не мигало
   (function () { var t; try { t = localStorage.getItem('theme'); } catch (e) {}
     if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     document.documentElement.dataset.theme = t; })();
 </script>
+<script src="i18n_ui.js?v=4b6127ad95"></script>
+<script src="i18n.js?v=1c0b9f8d95"></script>
 </head>
 <body>
 <header class="top">
@@ -30,6 +32,7 @@
     <button data-tab="damaged">Битые <span></span></button>
     <button data-tab="wish" class="in-cab">♥ Избранное <span></span></button>
   </nav>
+  <span id="langBox"></span>
   <button class="icon-btn" id="themeBtn" title="Светлая / тёмная тема" aria-label="Сменить тему">◐</button>
 </header>
 
@@ -95,8 +98,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js?v=b9c2b99744"></script>
 <script src="app.js?v=29b9723fa1"></script>
-<script src="portal.js?v=83c99718d9"></script>
+<script src="portal.js?v=48681149bc"></script>
 <script>
+  document.getElementById('langBox').innerHTML = I18N.switcher();
   document.getElementById('themeBtn').onclick = function () {
     var t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = t; try { localStorage.setItem('theme', t); } catch (e) {}
