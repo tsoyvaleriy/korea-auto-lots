@@ -69,8 +69,7 @@ window.startCatalog = function (DATA, P) {
       if (except !== 'src' && state.src.length && !state.src.includes(l.source)) return false;
       if (except !== 'make' && state.make && l.make !== state.make) return false;
       if (except !== 'model' && except !== 'make' && state.model && l.model !== state.model) return false;
-      if (state.origin && l.make !== 'Other' && (state.origin === 'kr') !== KR_MAKES.includes(l.make)) return false;
-      if (state.origin && l.make === 'Other') return false;
+      if (except !== 'origin' && state.origin && (l.make === 'Other' || (state.origin === 'kr') !== KR_MAKES.includes(l.make))) return false;
       if (except !== 'make' && state.makes?.length && !state.makes.includes(l.make)) return false;
       if (except !== 'model' && except !== 'make' && state.models?.length && !state.models.includes(l.modelKey)) return false;
       if (state.yFrom && l.year && l.year < +state.yFrom) return false;
@@ -115,6 +114,16 @@ window.startCatalog = function (DATA, P) {
     const srcs = Object.entries(DATA.sources).filter(([, s]) => s.category === state.tab || state.tab === 'wish');
     chips($('#fSource'), 'src', srcs.map(([id, s]) => [id, s.name, srcCount[id] || 0]));
 
+    const oc = countBy(filtered('origin').filter(l => l.make !== 'Other'), l => KR_MAKES.includes(l.make) ? 'kr' : 'imp');
+    $('#fOrigin').innerHTML = [['kr', 'Корейские'], ['imp', 'Импортные']].map(([v, t]) =>
+      `<button class="chip ${state.origin === v ? 'on' : ''}" data-v="${v}">${t}<small>${oc[v] || 0}</small></button>`).join('');
+    $('#fOrigin').onclick = e => {
+      const b = e.target.closest('.chip'); if (!b) return;
+      state.origin = state.origin === b.dataset.v ? '' : b.dataset.v;
+      if (state.make && state.origin && (state.origin === 'kr') !== KR_MAKES.includes(state.make)) { state.make = ''; state.model = ''; }
+      changed();
+    };
+
     const dmgTab = state.tab === 'damaged';
     $('#gPrice').hidden = dmgTab; $('#fPrice').closest('label').hidden = dmgTab;
     document.querySelectorAll('#sort option[value^=price]').forEach(o => o.hidden = dmgTab);
@@ -149,6 +158,7 @@ window.startCatalog = function (DATA, P) {
   // короткое описание текущих фильтров — для названия сохранённого поиска
   function describe() {
     const p = [];
+    if (state.origin) p.push(state.origin === 'kr' ? 'корейские' : 'импортные');
     if (state.make) p.push(state.make + (state.model ? ' ' + state.model : ''));
     if (state.yFrom || state.yTo) p.push(`${state.yFrom || '…'}–${state.yTo || '…'} г.`);
     if (state.pFrom || state.pTo) p.push(`$${state.pFrom || 0}–${state.pTo || '∞'}`);
@@ -164,6 +174,7 @@ window.startCatalog = function (DATA, P) {
     const add = (label, reset) => out.push([label, reset]);
     if (state.q) add(`«${state.q}»`, () => state.q = '');
     state.src.forEach(s => add(DATA.sources[s]?.name || s, () => state.src = state.src.filter(x => x !== s)));
+    if (state.origin) add(state.origin === 'kr' ? 'Корейские' : 'Импортные', () => state.origin = '');
     if (state.make) add(state.make, () => { state.make = ''; state.model = ''; });
     if (state.model) add(state.model, () => state.model = '');
     if (state.yFrom || state.yTo) add(`${state.yFrom || '…'}–${state.yTo || '…'} г.`, () => { state.yFrom = state.yTo = ''; });
@@ -484,6 +495,12 @@ window.startCatalog = function (DATA, P) {
   $('#cabNav').onclick = e => { const b = e.target.closest('[data-cab]'); if (b) document.querySelector(`#tabs [data-tab="${b.dataset.cab}"]`)?.click(); };
   let qt;
   $('#q').oninput = e => { clearTimeout(qt); qt = setTimeout(() => { state.q = e.target.value; changed(); }, 200); };
+  $('#q').onkeydown = e => {
+    if (e.key !== 'Enter') return;
+    clearTimeout(qt); state.q = e.target.value; changed();
+    e.target.blur();
+    if ($('#filters').classList.contains('open')) $('#fApply')?.click();
+  };
   $('#fMake').onchange = e => { state.make = e.target.value; state.model = ''; changed(); };
   $('#fModel').onchange = e => { state.model = e.target.value; changed(); };
   $('#fYearFrom').onchange = e => { state.yFrom = e.target.value; changed(); };
@@ -522,6 +539,15 @@ window.startCatalog = function (DATA, P) {
   done.innerHTML = '<button class="btn primary" id="fApply">Показать результаты</button>';
   $('#filters').appendChild(done);
   $('#fApply').onclick = closeFilters;
+  const vv = window.visualViewport;
+  const fitFilters = () => {
+    const f = $('#filters');
+    if (!vv || !f.classList.contains('open')) { f.style.height = ''; f.style.top = ''; return; }
+    f.style.height = vv.height + 'px'; f.style.top = vv.offsetTop + 'px';
+  };
+  vv?.addEventListener('resize', fitFilters); vv?.addEventListener('scroll', fitFilters);
+  $('#openFilters').addEventListener('click', fitFilters);
+  $('#fApply').addEventListener('click', fitFilters);
 
   document.addEventListener('click', e => {
     const h = e.target.closest('[data-heart]');

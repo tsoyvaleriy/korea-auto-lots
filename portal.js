@@ -712,11 +712,13 @@
     const list = near.length ? near : all;
     const kmNote = b ? (near.length ? `пробег ${fmtKm(a)}–${fmtKm(b)} км` : 'с похожим пробегом нет — показаны все пробеги') : 'пробег любой';
     const sold = list.filter(x => x.status !== 'live' && x.final_usd > 0);
+    const noBid = list.filter(x => x.status === 'unsold').length;
     const live = list.filter(x => x.status === 'live' && x.start_usd > 0);
     const stats = arr => `мин <b>${usd(Math.min(...arr))}</b> · медиана <b>${usd(median(arr))}</b> · макс <b>${usd(Math.max(...arr))}</b>`;
     return `<div class="mk-src"><div class="mk-h"><b>Autowini</b><span class="hint">${esc(String(lot.year - 1))}–${esc(String(lot.year + 1))} г., ${kmNote}</span></div>
-      ${sold.length ? `<div class="mk-row">Итоги торгов (${sold.length}): ${stats(sold.map(x => x.final_usd))}</div><ul class="mk-ex">${awExamples(sold, 'final_usd')}</ul>`
-        : '<div class="mk-row hint">Итогов торгов по этой модели пока нет — статистика копится после каждых торгов.</div>'}
+      ${sold.length ? `<div class="mk-row">Прошли торги со ставками (${sold.length}), последняя ставка: ${stats(sold.map(x => x.final_usd))}</div><ul class="mk-ex">${awExamples(sold, 'final_usd')}</ul>`
+        : '<div class="mk-row hint">Торгов со ставками по этой модели пока не было — статистика копится после каждых торгов.</div>'}
+      ${noBid ? `<div class="mk-row hint">Без ставок (не проданы): ${noBid}</div>` : ''}
       ${live.length ? `<div class="mk-row">Сейчас на торгах (${live.length}), стартовые цены: ${stats(live.map(x => x.start_usd))}</div><ul class="mk-ex">${awExamples(live, 'start_usd')}</ul>`
         : '<div class="mk-row hint">Сейчас похожих лотов на торгах нет.</div>'}</div>`;
   }
