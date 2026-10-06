@@ -721,8 +721,13 @@
         : '<div class="mk-row hint">Сейчас похожих лотов на торгах нет.</div>'}</div>`;
   }
   async function extLinks(el, lot) {
-    if (!el || ME?.role !== 'admin') return;
+    if (!el) return;
     const url = dubizzleUrl(lot);
+    const dzBtn = url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener" title="Объявления этой модели в ОАЭ: год ±1, пробег ${(() => { const [a, b] = kmRange(lot.mileage); return b ? `${fmtKm(a)}–${fmtKm(b)} км` : 'любой'; })()}">Похожие на Dubizzle ↗</a>` : '';
+    if (ME?.role !== 'admin') {              // партнёрам — только ссылка на похожие объявления Dubizzle
+      if (dzBtn) el.innerHTML = `<div class="mk-dz">${dzBtn}</div>`;
+      return;
+    }
     // ссылки на лот на сайтах аукционов (если лот продаётся на нескольких — все ссылки)
     const origins = [{ source: lot.source, url: lot.url, lotNo: lot.lotNo }, ...(lot.alsoOn || [])].filter(o => /^https?:/.test(o.url || ''));
     const origHtml = origins.length ? `<div class="orig-links"><span class="hint">Лот на сайте аукциона${origins.length > 1 ? ' (дубли)' : ''}:</span>
@@ -730,7 +735,7 @@
     el.innerHTML = origHtml + `<div class="market"><div class="mk-title">Сравнение с рынком <span class="hint">видно только админу</span></div>
       <div id="mkAw"><p class="hint">Загружаю Autowini…</p></div>
       ${url ? `<div class="mk-dz"></div>` : ''}</div>`;
-    if (url) el.querySelector('.mk-dz').innerHTML = `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener" title="Объявления этой модели в ОАЭ: год ±1, пробег ${(() => { const [a, b] = kmRange(lot.mileage); return b ? `${fmtKm(a)}–${fmtKm(b)} км` : 'любой'; })()}">Похожие на Dubizzle ↗</a>`;
+    if (url) el.querySelector('.mk-dz').innerHTML = dzBtn;
     try { el.querySelector('#mkAw').innerHTML = await awBlock(lot) || '<p class="hint">Нет данных о модели для сравнения.</p>'; }
     catch (e) { el.querySelector('#mkAw').innerHTML = `<p class="hint">Autowini: ${esc(e.message)}</p>`; }
   }
