@@ -1,0 +1,10 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for u in https://api.ahsellcar.co.kr https://www.autohubauction.co.kr https://jenomotors.com https://www.happycarservice.com https://v2api.auctionwini.com https://api.stock.naver.com/marketindex/exchange/FX_USDKRW https://ruxwsnhtglejqwowbplg.supabase.co; do
+            echo "$u -> $(curl -s -o /dev/null -w '%{http_code} %{time_total}s' -A 'Mozilla/5.0' --max-time 30 $u)"
+          done
