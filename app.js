@@ -166,7 +166,7 @@ window.startCatalog = function (DATA, P) {
     state.fuel.forEach(f => p.push(FUEL[f]));
     if (state.noRepl) p.push('без замен');
     if (state.q) p.push(`«${state.q}»`);
-    return (state.tab === 'damaged' ? 'Битые: ' : 'Autohub: ') + (p.join(', ') || 'все');
+    return ({ damaged: 'Битые: ', kcar: 'K Car: ' }[state.tab] || 'Autohub: ') + (p.join(', ') || 'все');
   }
 
   function activeChips() {
@@ -240,7 +240,7 @@ window.startCatalog = function (DATA, P) {
       const live = BY_ID[id], l = live ? { ...live } : { ...wish[id].snap, usd: wish[id].snap.priceKRW ? Math.round(wish[id].snap.priceKRW / RATE) : null };
       return `<div class="wish-row" data-id="${esc(id)}">
         ${l.photos?.[0] ? `<img src="${esc(l.photos[0])}" referrerpolicy="no-referrer" alt="">` : '<img alt="">'}
-        <div><div class="title">${esc(title(l))}<small>${esc(DATA.sources[l.source]?.name || l.source)} · ${l.category === 'damaged' ? 'битый' : 'Autohub'} · лот ${esc(l.lotNo || '—')}</small></div>
+        <div><div class="title">${esc(title(l))}<small>${esc(DATA.sources[l.source]?.name || l.source)} · ${l.category === 'damaged' ? 'битый' : 'целый'} · лот ${esc(l.lotNo || '—')}</small></div>
           <div class="specs"><span>${l.year || ''}</span><span>${l.mileage != null ? (l.mileageApprox ? '≈ ' : '') + fmt(l.mileage) + ' км' : ''}</span><span><b>${l.usd ? '$' + fmt(l.usd) : ''}</b></span>
           ${!live ? '<span class="gone">лот снят / торги завершены</span>' : ended(l) ? '<span class="gone">торги прошли</span>' : ''}</div>
           <input class="note" data-note="${esc(id)}" value="${esc(wish[id].note)}" placeholder="заметка…" style="margin-top:6px;width:100%;border:1px solid var(--line);border-radius:6px;padding:4px 8px" onclick="event.stopPropagation()"></div>
@@ -295,10 +295,10 @@ window.startCatalog = function (DATA, P) {
   function changed() { shown = PAGE; writeHash(); render(); }
 
   function updateCounts() {
-    const c = { whole: 0, damaged: 0 };
+    const c = { whole: 0, damaged: 0, kcar: 0 };
     LOTS.forEach(l => { if (!ended(l)) c[l.category]++; });
     const sp = t => document.querySelector(`#tabs [data-tab="${t}"] span`) || {};
-    sp('whole').textContent = c.whole; sp('damaged').textContent = c.damaged; sp('wish').textContent = Object.keys(wish).length;
+    sp('whole').textContent = c.whole; sp('damaged').textContent = c.damaged; sp('kcar').textContent = c.kcar; sp('wish').textContent = Object.keys(wish).length;
     sp('bids').textContent = P.activeBidsCount?.() || '';
     const cs = t => document.querySelector(`#cabNav [data-cab="${t}"] span`) || {};
     cs('wish').textContent = Object.keys(wish).length || ''; cs('bids').textContent = P.activeBidsCount?.() || '';

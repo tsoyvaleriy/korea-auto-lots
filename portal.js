@@ -685,7 +685,7 @@
     const startUsd = lot.category !== 'damaged' && lot.priceKRW ? Math.round(lot.priceKRW / RATE) : null;
     const base = MY[lot.id]?.amount_usd || startUsd || '';
     el.innerHTML = `<div class="calc">
-        <div class="calc-h"><b>Калькуляция</b>${isAdm ? `<select id="calcWho">${(PARTNERS || []).map(p => `<option value="${p.id}">${esc(p.display_name)}</option>`).join('')}</select>` : `<span class="hint">по вашим условиям · ${lot.category === 'damaged' ? 'битые' : 'Autohub'}</span>`}</div>
+        <div class="calc-h"><b>Калькуляция</b>${isAdm ? `<select id="calcWho">${(PARTNERS || []).map(p => `<option value="${p.id}">${esc(p.display_name)}</option>`).join('')}</select>` : `<span class="hint">по вашим условиям · ${lot.category === 'damaged' ? 'битые' : 'целые'}</span>`}</div>
         <label class="calc-row"><span>Цена автомобиля</span><span class="calc-in">$<input type="number" id="calcPrice" min="0" step="50" value="${base}" placeholder="сумма"></span></label>
         <div class="calc-row"><span>Комиссия <b id="calcPct"></b></span><span id="calcFee"></span></div>
         <div class="calc-row"><span>Сервисные расходы</span><span id="calcSrv"></span></div>
