@@ -788,7 +788,25 @@
     const dz = dubizzleUrl(lot), aw = autowiniUrl(lot);
     const [a, b] = kmRange(lot.mileage);
     return (dz ? `<a class="btn" href="${esc(dz)}" target="_blank" rel="noopener" title="Объявления этой модели в ОАЭ: год ±1, пробег ${b ? `${fmtKm(a)}–${fmtKm(b)} км` : 'любой'}">Похожие на Dubizzle ↗</a>` : '') +
-      (aw ? `<a class="btn" href="${esc(aw)}" target="_blank" rel="noopener" title="Такие же модели на корейском аукционе Autowini">Похожие на Autowini ↗</a>` : '');
+      (aw ? `<button type="button" class="btn" data-aw-btn disabled>Похожие на Autowini…</button>` : '');
+  }
+  // список похожих лотов Autowini (модель, год ±1, похожий пробег) — из нашей базы, обновляется каждый час
+  async function wireAw(root, lot) {
+    const btn = root.querySelector('[data-aw-btn]'); if (!btn) return;
+    const [a, b] = kmRange(lot.mileage);
+    const { data } = await sb.rpc('similar_aw', { mk: lot.modelKey, y: lot.year || 0, km_lo: a, km_hi: b });
+    const list = data || [];
+    btn.disabled = !list.length;
+    btn.textContent = list.length ? `Похожие на Autowini (${list.length})` : 'На Autowini похожих нет';
+    btn.title = 'Та же модель, год ±1, похожий пробег';
+    const box = document.createElement('div');
+    box.className = 'aw-list'; box.hidden = true;
+    box.innerHTML = `<p class="hint">Autowini — корейский аукцион для экспорта. Та же модель, ${lot.year ? `${lot.year - 1}–${lot.year + 1} г.` : 'любой год'}, ${b ? `${fmtKm(a)}–${fmtKm(b)} км` : 'любой пробег'}.</p>` +
+      list.map(x => `<a class="aw-item" href="${esc(x.url)}" target="_blank" rel="noopener">
+        ${x.photo ? `<img src="${esc(x.photo)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="aw-noimg"></span>'}
+        <span><b>${esc(x.name || '')}</b><br><span class="hint">${x.mileage ? fmtKm(x.mileage) + ' км · ' : ''}${x.status === 'live' ? 'на торгах' : 'торги прошли'}${x.auction_at ? ' · ' + new Date(x.auction_at).toLocaleDateString('ru-RU') : ''}</span></span> ↗</a>`).join('');
+    btn.after(box);
+    btn.onclick = () => { box.hidden = !box.hidden; };
   }
   const fmtKm = n => Math.round(n).toLocaleString('ru-RU');
   // сравнение с рынком (только админ): статистика Autowini, под ней ссылка на похожие на Dubizzle
@@ -824,7 +842,7 @@
     if (!el) return;
     const dzBtn = similarBtns(lot), url = dzBtn;
     if (!STAFF()) {                          // партнёрам — ссылки на похожие объявления Dubizzle и Autowini
-      if (dzBtn) el.innerHTML = `<div class="mk-dz">${dzBtn}</div>`;
+      if (dzBtn) { el.innerHTML = `<div class="mk-dz">${dzBtn}</div>`; wireAw(el, lot); }
       return;
     }
     // ссылки на лот на сайтах аукционов (если лот продаётся на нескольких — все ссылки)
@@ -834,7 +852,7 @@
     el.innerHTML = origHtml + `<div class="market"><div class="mk-title">Сравнение с рынком <span class="hint">видно только админу</span></div>
       <div id="mkAw"><p class="hint">Загружаю Autowini…</p></div>
       ${url ? `<div class="mk-dz"></div>` : ''}</div>`;
-    if (url) el.querySelector('.mk-dz').innerHTML = dzBtn;
+    if (url) { el.querySelector('.mk-dz').innerHTML = dzBtn; wireAw(el, lot); }
     try { el.querySelector('#mkAw').innerHTML = await awBlock(lot) || '<p class="hint">Нет данных о модели для сравнения.</p>'; }
     catch (e) { el.querySelector('#mkAw').innerHTML = `<p class="hint">Autowini: ${esc(e.message)}</p>`; }
   }
