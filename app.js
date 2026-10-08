@@ -60,13 +60,15 @@ window.startCatalog = function (DATA, P) {
   const hasSheet = l => l.hasSheet ?? !!(l.inspection && (Object.keys(l.inspection.panels || {}).length || l.inspection.items?.length || l.inspection.grades?.length || l.inspection.sheetImages?.length || l.inspection.sheetUrl || Object.keys(l.inspection.marks || {}).length));
   const title = l => `${l.make !== 'Other' ? l.make + ' ' : ''}${l.model}`.trim();
 
+  const srcsOf = l => [l.source, ...(l.alsoOn || []).map(a => a.source)].filter((s, i, a) => s && a.indexOf(s) === i);
+
   function baseSet() { return LOTS.filter(l => l.category === state.tab); }
 
   function filtered(except) {
     const q = state.q.trim().toLowerCase();
     return baseSet().filter(l => {
       if (q && !`${title(l)} ${l.grade} ${l.lotNo} ${l.vin} ${l.plate} ${l.location}`.toLowerCase().includes(q)) return false;
-      if (except !== 'src' && state.src.length && !state.src.includes(l.source)) return false;
+      if (except !== 'src' && state.src.length && !srcsOf(l).some(s => state.src.includes(s))) return false;
       if (except !== 'make' && state.make && l.make !== state.make) return false;
       if (except !== 'model' && except !== 'make' && state.model && l.model !== state.model) return false;
       if (except !== 'origin' && state.origin && (l.make === 'Other' || (state.origin === 'kr') !== KR_MAKES.includes(l.make))) return false;
@@ -110,7 +112,8 @@ window.startCatalog = function (DATA, P) {
   }
 
   function buildFilters() {
-    const srcCount = countBy(filtered('src'), l => l.source);
+    const srcCount = {};
+    filtered('src').forEach(l => srcsOf(l).forEach(s => { srcCount[s] = (srcCount[s] || 0) + 1; }));
     const srcs = Object.entries(DATA.sources).filter(([, s]) => s.category === state.tab || state.tab === 'wish');
     chips($('#fSource'), 'src', srcs.map(([id, s]) => [id, s.name, srcCount[id] || 0]));
 
@@ -212,9 +215,9 @@ window.startCatalog = function (DATA, P) {
     return `<div class="card" data-id="${esc(l.id)}">
       <div class="thumb">
         ${ph ? `<img src="${esc(ph)}" loading="lazy" referrerpolicy="no-referrer" alt="" onerror="this.remove()">` : ''}<div class="noimg" style="z-index:-1">нет фото</div>
-        <div class="badges"><span class="badge">${esc(DATA.sources[l.source]?.name || l.source)}</span>
+        <div class="badges"><span class="badge">${srcsOf(l).map(s => esc(DATA.sources[s]?.name || s)).join(' + ')}</span>
           ${l.aucGrade ? `<span class="badge grade">${esc(l.aucGrade)}</span>` : ''}${hasSheet(l) ? '<span class="badge sheet">лист осмотра</span>' : ''}
-          ${l.alsoOn?.length ? `<span class="badge">+${l.alsoOn.length} аукц.</span>` : ''}</div>
+</div>
         <button class="heart ${isWish(l.id) ? 'on' : ''}" data-heart="${esc(l.id)}" title="В избранное">${isWish(l.id) ? '♥' : '♡'}</button>
         ${(l.photoCount ?? l.photos?.length) > 1 ? `<span class="photos-n">📷 ${l.photoCount ?? l.photos.length}</span>` : ''}
         ${P.myBid?.(l.id) ? `<span class="my-bid">моя ставка $${fmt(P.myBid(l.id))}</span>` : ''}
@@ -419,7 +422,7 @@ window.startCatalog = function (DATA, P) {
     const photos = l.photos?.length ? l.photos : [];
     let i = 0;
     const rows = [
-      ['Аукцион', `<a href="${esc(DATA.sources[l.source]?.site)}" target="_blank" rel="noreferrer">${esc(DATA.sources[l.source]?.name)}</a>`],
+      ['Аукцион', srcsOf(l).map(s => `<a href="${esc(DATA.sources[s]?.site)}" target="_blank" rel="noreferrer">${esc(DATA.sources[s]?.name || s)}</a>`).join(' + ')],
       ['Лот №', esc(l.lotNo)], ['Год', l.year || '—'], ['Первая регистрация', esc(l.regDate || '—')],
       ['Пробег', l.mileage != null ? (l.mileageApprox ? '≈ ' : '') + fmt(l.mileage) + ' км' + (l.mileageApprox ? ` <span class="hint">(не подтверждён — ${esc(l.mileageNote || 'из описания')})</span>` : '') : '—'], ['Топливо', FUEL[l.fuel] + (l.fuelRaw ? ` <span class="hint">(${esc(l.fuelRaw)})</span>` : '')],
       ['КПП', esc(l.transmission || '—')], ['Объём', l.engineCc ? fmt(l.engineCc) + ' см³' : '—'], ['Цвет', COLOR[l.color] || '—'],
