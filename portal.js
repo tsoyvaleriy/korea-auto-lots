@@ -13,7 +13,7 @@
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const usd = n => n == null ? '—' : '$' + Math.round(n).toLocaleString('ru-RU');
-  const SRC = { autohub: 'Autohub', autohub_pub: 'Autohub 공매', jenomotors: 'Jenomotors', happycar: 'HappyCar' };
+  const SRC = { autohub: 'Autohub', autohub_pub: 'Autohub 공매', jenomotors: 'Jenomotors', happycar: 'HappyCar', kcar: 'K Car', heydealer: 'HeyDealer' };
   const titleOf = l => l ? `${l.make && l.make !== 'Other' ? l.make + ' ' : ''}${l.model || ''}`.trim() : '';
   // время аукционов — корейское; строки без зоны считаем KST
   const ts = s => s ? new Date(/[zZ]|[+-]\d\d:\d\d$/.test(s) ? s : s + '+09:00').getTime() : null;

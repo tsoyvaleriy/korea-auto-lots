@@ -169,7 +169,7 @@ window.startCatalog = function (DATA, P) {
     state.fuel.forEach(f => p.push(FUEL[f]));
     if (state.noRepl) p.push('без замен');
     if (state.q) p.push(`«${state.q}»`);
-    return ({ damaged: 'Битые: ', kcar: 'K Car: ' }[state.tab] || 'Autohub: ') + (p.join(', ') || 'все');
+    return ({ damaged: 'Битые: ', kcar: 'K Car: ', heydealer: 'HeyDealer: ' }[state.tab] || 'Autohub: ') + (p.join(', ') || 'все');
   }
 
   function activeChips() {
@@ -202,9 +202,11 @@ window.startCatalog = function (DATA, P) {
     return `<div class="ends ${h < 24 ? 'soon' : ''}">${left}<br>${t}</div>`;
   }
 
+  const priceWord = l => l.source === 'heydealer' ? 'желаемая цена продавца' : 'стартовая цена';
+
   function priceHtml(l) {
     if (l.category === 'damaged') return '<div></div>';
-    return l.usd ? `<div class="price">$${fmt(l.usd)}<small>стартовая цена</small></div>`
+    return l.usd ? `<div class="price">$${fmt(l.usd)}<small>${priceWord(l)}</small></div>`
       : `<div class="price" style="font-size:14px;color:var(--muted)">без стартовой цены<small>${l.source === "autohub_pub" ? "ставки вслепую (공매)" : "&nbsp;"}</small></div>`;
   }
 
@@ -298,10 +300,10 @@ window.startCatalog = function (DATA, P) {
   function changed() { shown = PAGE; writeHash(); render(); }
 
   function updateCounts() {
-    const c = { whole: 0, damaged: 0, kcar: 0 };
+    const c = { whole: 0, damaged: 0, kcar: 0, heydealer: 0 };
     LOTS.forEach(l => { if (!ended(l)) c[l.category]++; });
     const sp = t => document.querySelector(`#tabs [data-tab="${t}"] span`) || {};
-    sp('whole').textContent = c.whole; sp('damaged').textContent = c.damaged; sp('kcar').textContent = c.kcar; sp('wish').textContent = Object.keys(wish).length;
+    sp('whole').textContent = c.whole; sp('damaged').textContent = c.damaged; sp('kcar').textContent = c.kcar; sp('heydealer').textContent = c.heydealer; sp('wish').textContent = Object.keys(wish).length;
     sp('bids').textContent = P.activeBidsCount?.() || '';
     const cs = t => document.querySelector(`#cabNav [data-cab="${t}"] span`) || {};
     cs('wish').textContent = Object.keys(wish).length || ''; cs('bids').textContent = P.activeBidsCount?.() || '';
@@ -445,7 +447,7 @@ window.startCatalog = function (DATA, P) {
           <h2 class="m-title">${esc(title(l))}</h2>
           <div class="m-sub">${esc(l.grade || '')}</div>
           <div class="tags">${(l.condition || []).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
-          ${l.category === 'damaged' ? '' : `<div class="m-price">${l.usd ? `<b>$${fmt(l.usd)}</b><span>стартовая цена</span>${P.fx ? P.fx(l.usd) : ''}` : `<span>без стартовой цены${l.source === 'autohub_pub' ? ' — закрытые торги, ставки вслепую' : ''}</span>`}</div>`}
+          ${l.category === 'damaged' ? '' : `<div class="m-price">${l.usd ? `<b>$${fmt(l.usd)}</b><span>${priceWord(l)}</span>${P.fx ? P.fx(l.usd) : ''}` : `<span>без стартовой цены${l.source === 'autohub_pub' ? ' — закрытые торги, ставки вслепую' : ''}</span>`}</div>`}
           ${l.feeKRW ? `<p class="hint">+ комиссия аукциона $${fmt(Math.round(l.feeKRW / RATE))}</p>` : ''}
           <dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
           <div id="marketBox"></div>

@@ -21,7 +21,7 @@
     if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     document.documentElement.dataset.theme = t; })();
 </script>
-<script src="i18n_ui.js?v=2b5df46a40"></script>
+<script src="i18n_ui.js?v=2a302222d4"></script>
 <script src="i18n.js?v=1c0b9f8d95"></script>
 </head>
 <body>
@@ -30,6 +30,7 @@
   <nav class="tabs" id="tabs">
     <button data-tab="whole" class="active">Autohub <span></span></button>
     <button data-tab="kcar">K Car <span></span></button>
+    <button data-tab="heydealer">HeyDealer <span></span></button>
     <button data-tab="damaged">Битые <span></span></button>
     <button data-tab="wish" class="in-cab">♥ Избранное <span></span></button>
   </nav>
@@ -98,8 +99,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js?v=b9c2b99744"></script>
-<script src="app.js?v=c57f60075c"></script>
-<script src="portal.js?v=a54ad720e7"></script>
+<script src="app.js?v=bc3ac08182"></script>
+<script src="portal.js?v=2515788f4b"></script>
 <script>
   document.getElementById('langBox').innerHTML = I18N.switcher();
   document.getElementById('themeBtn').onclick = function () {
