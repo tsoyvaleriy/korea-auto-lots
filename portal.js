@@ -512,11 +512,11 @@
     const partners = all.filter(p => p.role === 'partner' && (!PF || p.manager_id === PF));
     const cnt = id => all.filter(p => p.role === 'partner' && p.manager_id === id).length;
     const mOpts = sel => managers.map(m => `<option value="${m.id}" ${m.id === sel ? 'selected' : ''}>${esc(m.role === 'admin' ? 'Я (владелец)' : m.display_name)}</option>`).join('');
-    const row = p => `<tr data-id="${p.id}"><td>${esc(p.display_name)}</td><td>${esc(p.login)}</td>
+    const row = p => `<tr data-id="${p.id}"><td>${esc(p.display_name)}${p.phone ? `<br><a class="hint" href="tel:${esc(p.phone)}">${esc(p.phone)}</a>` : ''}</td><td>${esc(p.login)}</td>
           ${owner ? `<td>${p.role === 'partner' ? esc(mName(p.manager_id)) : `<span class="hint">${ROLE_RU[p.role]}</span>`}</td>` : ''}
           <td>${pair(p.commission_pct, p.commission_pct_dmg, v => +v + '%')}</td><td>${pair(p.service_usd, p.service_usd_dmg, usd)}</td><td>${pair(p.freight_usd, p.freight_usd_dmg, usd)}</td>
           <td>${p.max_active_usd ? usd(p.max_active_usd) : '—'}</td><td>${seenAgo(p.last_seen_at)}${p.visits ? `<br><span class="hint">визитов: ${p.visits}</span>` : ''}</td><td>${p.is_active ? '<span class="g-good">активен</span>' : '<span class="g-bad">отключён</span>'}</td>
-          <td><button class="link" data-act="terms">условия</button> · <button class="link" data-act="name">имя</button> · <button class="link" data-act="pass">пароль</button> · <button class="link" data-act="limit">лимит</button>
+          <td><button class="link" data-act="terms">условия</button> · <button class="link" data-act="name">имя</button> · <button class="link" data-act="phone">телефон</button> · <button class="link" data-act="pass">пароль</button> · <button class="link" data-act="limit">лимит</button>
             ${p.id !== ME.id ? ` · <button class="link" data-act="toggle">${p.is_active ? 'отключить' : 'включить'}</button>` : ''}
             ${owner ? ` · <button class="link" data-act="move">передать</button> · <button class="link danger" data-act="del">удалить</button>` : ''}</td></tr>`;
     body.innerHTML = `<form class="adm-new" id="pNew">
@@ -525,6 +525,7 @@
         <input name="display_name" placeholder="Имя для Telegram, напр. «Алексей (Бишкек)»" required>
         <input name="login" placeholder="логин (латиница)" required autocapitalize="none">
         <input name="password" placeholder="пароль (от 8 символов)" required minlength="8">
+        <input name="phone" type="tel" placeholder="телефон партнёра, напр. +971 50 123 4567">
         ${owner ? `<label class="hint" id="pMgrWrap">Менеджер партнёра<select name="manager_id">${mOpts(ME.id)}</select></label>` : ''}
         <input name="max_active_usd" type="number" placeholder="лимит активных ставок, $ (необязательно)">
         <div class="terms-cols" id="pTerms">${termsFields({})}</div>
@@ -552,6 +553,7 @@
       try {
         await adminCall({ action: 'create_partner', display_name: f.display_name.value, login: f.login.value, password: f.password.value,
                           role: f.role?.value || 'partner', manager_id: f.manager_id?.value || null, max_active_usd: +f.max_active_usd.value || null,
+                          phone: f.phone.value.trim(),
                           ...readTerms(f) });
         PARTNERS = null;
         admPartners(body);
@@ -568,6 +570,7 @@
           PARTNERS = null;
         }
         if (b.dataset.act === 'name') { const v = prompt('Имя для Telegram', p.display_name); if (v) await adminCall({ action: 'update_partner', id, display_name: v }); }
+        if (b.dataset.act === 'phone') { const v = prompt('Телефон партнёра (пусто — удалить)', p.phone || ''); if (v !== null) await adminCall({ action: 'update_partner', id, phone: v.trim() || null }); }
         if (b.dataset.act === 'pass') { const v = prompt('Новый пароль (от 8 символов)'); if (v) await adminCall({ action: 'update_partner', id, password: v }); }
         if (b.dataset.act === 'limit') { const v = prompt('Лимит активных ставок, $ (пусто — без лимита)', p.max_active_usd || ''); if (v !== null) await adminCall({ action: 'update_partner', id, max_active_usd: +v || null }); }
         if (b.dataset.act === 'toggle' && confirm(`${p.is_active ? 'Отключить' : 'Включить'} ${p.display_name}?`)) await adminCall({ action: 'update_partner', id, is_active: !p.is_active });
@@ -790,6 +793,27 @@
     return (dz ? `<a class="btn" href="${esc(dz)}" target="_blank" rel="noopener" title="Объявления этой модели в ОАЭ: год ±1, пробег ${b ? `${fmtKm(a)}–${fmtKm(b)} км` : 'любой'}">Похожие на Dubizzle ↗</a>` : '') +
       (aw ? `<button type="button" class="btn" data-aw-btn disabled>Похожие на Autowini…</button>` : '');
   }
+  // Excel со статистикой Autowini по аналогичной модели (владелец и менеджеры)
+  async function awExcel(btn, lot) {
+    const label = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Готовлю Excel…';
+    try {
+      const [a, b] = kmRange(lot.mileage);
+      const { data: s } = await sb.auth.getSession();
+      const r = await fetch(CFG.url + '/functions/v1/aw-stats', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', apikey: CFG.anonKey, Authorization: 'Bearer ' + s.session.access_token },
+        body: JSON.stringify({ mk: lot.modelKey, y: lot.year || 0, km_lo: a, km_hi: b, title: `${titleOf(lot)} ${lot.year || ''}` }),
+      });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'ошибка ' + r.status);
+      const blob = await r.blob();
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = decodeURIComponent(r.headers.get('x-filename') || 'Autowini.xlsx');
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+    } catch (e) { toast('Не получилось: ' + e.message); }
+    btn.disabled = false; btn.textContent = label;
+  }
   // список похожих лотов Autowini (модель, год ±1, похожий пробег) — из нашей базы, обновляется каждый час
   async function wireAw(root, lot) {
     const btn = root.querySelector('[data-aw-btn]'); if (!btn) return;
@@ -851,8 +875,11 @@
       ${origins.map(o => `<a class="btn" href="${esc(o.url)}" target="_blank" rel="noopener">${esc(SRC[o.source] || o.source)}${o.lotNo ? ' · лот ' + esc(o.lotNo) : ''} ↗</a>`).join('')}</div>` : '';
     el.innerHTML = origHtml + `<div class="market"><div class="mk-title">Сравнение с рынком <span class="hint">видно только админу</span></div>
       <div id="mkAw"><p class="hint">Загружаю Autowini…</p></div>
+      <div class="mk-xls"><button type="button" class="btn" id="awXls">📊 Статистика Autowini (Excel)</button>
+        <span class="hint">та же модель, год ±1, похожий пробег · листы «Целые» и «Битые» · ссылки на ZIP с фото</span></div>
       ${url ? `<div class="mk-dz"></div>` : ''}</div>`;
     if (url) { el.querySelector('.mk-dz').innerHTML = dzBtn; wireAw(el, lot); }
+    el.querySelector('#awXls').onclick = e => awExcel(e.currentTarget, lot);
     try { el.querySelector('#mkAw').innerHTML = await awBlock(lot) || '<p class="hint">Нет данных о модели для сравнения.</p>'; }
     catch (e) { el.querySelector('#mkAw').innerHTML = `<p class="hint">Autowini: ${esc(e.message)}</p>`; }
   }
