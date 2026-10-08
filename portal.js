@@ -775,6 +775,21 @@
     if (kmTo) p.push(`kilometers__gte=${kmFrom}`, `kilometers__lte=${kmTo}`);
     return `https://uae.dubizzle.com/motors/used-cars/${make}/${model ? model + '/' : ''}${p.length ? '?' + p.join('&') : ''}`;
   }
+  // похожие на Autowini (корейский аукцион для экспорта): поиск по марке и модели
+  const AW_MAKE = { kgm: '', 'mercedes-benz': 'Mercedes Benz', 'land rover': 'Land Rover' };
+  function autowiniUrl(lot) {
+    const [mk, base] = (lot.modelKey || '').split('|');
+    if (!mk || mk === 'other' || !base) return '';
+    const cap = w => w.replace(/(^|[\s-])\w/g, c => c.toUpperCase());
+    const make = mk in AW_MAKE ? AW_MAKE[mk] : cap(mk);
+    return `https://buyer.auctionwini.com/search?keyword=${encodeURIComponent(`${make} ${cap(base)}`.trim())}`;
+  }
+  function similarBtns(lot) {
+    const dz = dubizzleUrl(lot), aw = autowiniUrl(lot);
+    const [a, b] = kmRange(lot.mileage);
+    return (dz ? `<a class="btn" href="${esc(dz)}" target="_blank" rel="noopener" title="Объявления этой модели в ОАЭ: год ±1, пробег ${b ? `${fmtKm(a)}–${fmtKm(b)} км` : 'любой'}">Похожие на Dubizzle ↗</a>` : '') +
+      (aw ? `<a class="btn" href="${esc(aw)}" target="_blank" rel="noopener" title="Такие же модели на корейском аукционе Autowini">Похожие на Autowini ↗</a>` : '');
+  }
   const fmtKm = n => Math.round(n).toLocaleString('ru-RU');
   // сравнение с рынком (только админ): статистика Autowini, под ней ссылка на похожие на Dubizzle
   const median = a => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : null; };
@@ -807,9 +822,8 @@
   }
   async function extLinks(el, lot) {
     if (!el) return;
-    const url = dubizzleUrl(lot);
-    const dzBtn = url ? `<a class="btn" href="${esc(url)}" target="_blank" rel="noopener" title="Объявления этой модели в ОАЭ: год ±1, пробег ${(() => { const [a, b] = kmRange(lot.mileage); return b ? `${fmtKm(a)}–${fmtKm(b)} км` : 'любой'; })()}">Похожие на Dubizzle ↗</a>` : '';
-    if (!STAFF()) {                          // партнёрам — только ссылка на похожие объявления Dubizzle
+    const dzBtn = similarBtns(lot), url = dzBtn;
+    if (!STAFF()) {                          // партнёрам — ссылки на похожие объявления Dubizzle и Autowini
       if (dzBtn) el.innerHTML = `<div class="mk-dz">${dzBtn}</div>`;
       return;
     }
