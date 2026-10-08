@@ -313,7 +313,7 @@
         : mine.outcome === 'lost' ? `<b class="g-bad">Лот ушёл за ${usd(mine.result_price_usd)}</b>` : '';
       h += `<div class="bid-mine">Ваша ставка: <b>${usd(mine.amount_usd)}</b> <span class="hint">от ${dateStr(mine.updated_at)}</span>${res ? '<br>' + res : ''}${fxLine(mine.amount_usd)}</div>`;
     }
-    if (endMs) h += `<div class="bid-timer">До торгов: ${timer(lot.endsAt)} <span class="hint">· ${dateStr(lot.endsAt)} KST</span></div>`;
+    if (endMs) h += `<div class="bid-timer">${lot.source === 'heydealer' ? 'До окончания торгов' : 'До торгов'}: ${timer(lot.endsAt)} <span class="hint">· ${dateStr(lot.endsAt)} KST</span></div>`;
     if (mine?.outcome && mine.outcome !== 'pending') {
       h += '</div>';
     } else if (closed) {

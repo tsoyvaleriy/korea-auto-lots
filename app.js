@@ -199,7 +199,7 @@ window.startCatalog = function (DATA, P) {
     if (diff < 0) return `<div class="ends">${l.negotiable ? 'не продан, торг возможен' : 'торги прошли'}<br>${t}</div>`;
     const h = Math.floor(diff / 3600e3);
     const left = h < 48 ? `через ${h} ч ${Math.floor(diff / 60e3) % 60} мин` : `через ${Math.floor(h / 24)} дн`;
-    return `<div class="ends ${h < 24 ? 'soon' : ''}">${left}<br>${t}</div>`;
+    return `<div class="ends ${h < 24 ? 'soon' : ''}">${l.source === 'heydealer' ? 'окончание ' : ''}${left}<br>${t}</div>`;
   }
 
   const priceWord = l => l.source === 'heydealer' ? 'желаемая цена продавца' : 'стартовая цена';
@@ -430,7 +430,7 @@ window.startCatalog = function (DATA, P) {
       ['КПП', esc(l.transmission || '—')], ['Объём', l.engineCc ? fmt(l.engineCc) + ' см³' : '—'], ['Цвет', COLOR[l.color] || '—'],
       ['VIN', esc(l.vin || '—')], ['Госномер', esc(l.plate || '—')],
       ['Местонахождение', esc(l.location || '—')],
-      ['Торги', l.endsAt ? new Date(l.endsAt).toLocaleString('ru-RU') : '—'], ['Статус', esc(l.statusRu || '—')], ['Стоянка / линия', esc(l.parking || '—')], ['Использование', esc(l.useRu || '—')],
+      [l.source === 'heydealer' ? 'Окончание торгов' : 'Торги', l.endsAt ? new Date(l.endsAt).toLocaleString('ru-RU') : '—'], ['Статус', esc(l.statusRu || '—')], ['Стоянка / линия', esc(l.parking || '—')], ['Использование', esc(l.useRu || '—')],
     ];
     $('#modalBox').innerHTML = `<button class="m-close" data-close>✕</button>
       <div class="m-grid">
