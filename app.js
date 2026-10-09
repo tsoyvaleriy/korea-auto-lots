@@ -338,6 +338,34 @@ window.startCatalog = function (DATA, P) {
   };
   const sevRank = { bad: 3, mid: 2, low: 1 };
 
+  // лист окрасов HeyDealer (도막 측정결과): детали закрашены по толщине ЛКП, как на сайте HeyDealer
+  const PAINT_BANDS = [['60–160 µm', '#cfeedb'], ['161–300 µm', '#8edba6'], ['301–500 µm', '#2f9a57'], ['501 µm и больше', '#0f4a26']];
+  const PAINT_MEASURED = ['fl_fender', 'fr_fender', 'rl_quarter', 'rr_quarter', 'fl_door', 'fr_door', 'rl_door', 'rr_door', 'hood', 'roof', 'trunk'];
+  function paintHtml(p) {
+    const lvl = k => { const c = (p.panels || {})[k] || []; return c.includes('L3') ? 3 : c.includes('L2') ? 2 : c.includes('L1') ? 1 : 0; };
+    const shapes = Object.entries(PANELS).map(([k, [name, d]]) => {
+      const m = PAINT_MEASURED.includes(k), l = lvl(k);
+      return `<g><title>${name}${m ? ': ' + PAINT_BANDS[l][0] : ' — не замерялось'}</title>
+        <path d="${d}" fill="${m ? PAINT_BANDS[l][1] : '#f3f5f8'}" stroke="#8aa0b4" stroke-width="1.2"/></g>`;
+    }).join('');
+    const odd = p.rows.filter(r => r.value !== 'норма');
+    return `<div class="group-title">Толщина ЛКП — замер оценщика HeyDealer</div>
+      <div class="diagram paint">
+      <svg viewBox="-24 -22 348 560" role="img" aria-label="Толщина ЛКП">
+        <text x="150" y="-8" text-anchor="middle" font-size="11" fill="#6b7280">ПЕРЕД</text>
+        <text x="150" y="532" text-anchor="middle" font-size="11" fill="#6b7280">ЗАД</text>
+        <text x="-14" y="270" text-anchor="middle" font-size="12" font-weight="700" fill="#6b7280">Л</text>
+        <text x="314" y="270" text-anchor="middle" font-size="12" font-weight="700" fill="#6b7280">П</text>
+        ${shapes}
+      </svg>
+      <div class="legend">
+        <ul class="paint-legend">${PAINT_BANDS.map(([t, c]) => `<li><i style="background:${c}"></i>${t}</li>`).join('')}</ul>
+        <p class="hint">Заводское покрытие — обычно 60–160 µm; толще — деталь, скорее всего, перекрашивалась (501+ — шпатлёвка).</p>
+        ${odd.length ? '<ul>' + odd.map(r => `<li><b>${esc(r.name)}</b> — ${esc(r.value)}</li>`).join('') + '</ul>' : '<p class="g-good">Все замеренные детали — в заводской толщине.</p>'}
+        ${p.comment ? `<div class="group-title">Заметка оценщика</div><div class="notes">${esc(ru(p, 'comment'))}</div>` : ''}
+      </div></div>`;
+  }
+
   function diagramHtml(panels) {
     const sev = codes => codes.reduce((m, c) => Math.max(m, sevRank[CODES[c]?.[1]] || 1), 0);
     const fill = { 3: 'var(--red-soft)', 2: 'var(--amber-soft)', 1: '#fff8d6', 0: '#fff' };
@@ -400,9 +428,7 @@ window.startCatalog = function (DATA, P) {
     const marks = Object.entries(s.marks || {});
     if (marks.length && !s.layout) h += '<div class="marks">' + marks.map(([k, v]) =>
       `<div class="mark ${/Замен/.test(k) ? 'bad' : /Ремонт|ремонт|Окрас|Рихтовка/.test(k) ? 'mid' : ''}"><b>${esc(k)} (${v.length})</b>${v.map(esc).join(', ')}</div>`).join('') + '</div>';
-    if (s.paint?.rows?.length) h += `<div class="group-title">Толщина ЛКП (замер HeyDealer)</div>${Object.keys(s.paint.panels || {}).length ? diagramHtml(s.paint.panels) : ''}
-      <div class="sheet-grid">${s.paint.rows.map(r => `<div><span>${esc(r.name)}</span><span class="${r.value === 'норма' ? 'g-good' : /сильно/.test(r.value) ? 'g-bad' : 'g-mid'}">${esc(r.value)}</span></div>`).join('')}</div>
-      ${s.paint.comment ? `<div class="notes">${esc(ru(s.paint, 'comment'))}</div>` : ''}`;
+    if (s.paint?.rows?.length) h += paintHtml(s.paint);
     if (s.accidents) h += `<p><b>Страховая история:</b> ${esc(ru(s, 'accidents'))}</p>${orig(s, 'accidents')}`;
     if (s.legal?.length) h += `<p><b>Юридически:</b> ${s.legal.map(x => `${esc(x.name)} — <span class="${x.value === '0' ? 'g-good' : 'g-bad'}">${x.value === '0' ? 'нет' : esc(x.value)}</span>`).join(' · ')}</p>`;
     if (s.exterior) h += `<div class="group-title">Комментарий осмотрщика</div><div class="notes">${esc(ru(s, 'exterior'))}</div>${orig(s, 'exterior')}`;

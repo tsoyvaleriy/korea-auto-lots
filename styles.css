@@ -447,3 +447,8 @@ body:has(#who) .tabs .in-cab { display: none; }
   border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); }
 .adm-rate > span:first-child { color: var(--muted); font-size: 13px; }
 .adm-rate b { font-size: 18px; }
+
+/* лист окрасов HeyDealer */
+.paint-legend { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 6px; }
+.paint-legend li { display: flex; align-items: center; gap: 8px; }
+.paint-legend i { width: 18px; height: 18px; border-radius: 3px; display: inline-block; border: 1px solid #b9c7d3; }

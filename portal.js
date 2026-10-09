@@ -517,6 +517,7 @@
           <td>${pair(p.commission_pct, p.commission_pct_dmg, v => +v + '%')}</td><td>${pair(p.service_usd, p.service_usd_dmg, usd)}</td><td>${pair(p.freight_usd, p.freight_usd_dmg, usd)}</td>
           <td>${p.max_active_usd ? usd(p.max_active_usd) : '—'}</td><td>${seenAgo(p.last_seen_at)}${p.visits ? `<br><span class="hint">визитов: ${p.visits}</span>` : ''}</td><td>${p.is_active ? '<span class="g-good">активен</span>' : '<span class="g-bad">отключён</span>'}</td>
           <td><button class="link" data-act="terms">условия</button> · <button class="link" data-act="name">имя</button> · <button class="link" data-act="phone">телефон</button> · <button class="link" data-act="pass">пароль</button> · <button class="link" data-act="limit">лимит</button>
+            ${p.role === 'partner' ? ` · <button class="link" data-act="market" title="Сравнение с рынком и Excel-статистика торгов">${p.market_access ? '📊 рынок: вкл' : 'рынок: выкл'}</button>` : ''}
             ${p.id !== ME.id ? ` · <button class="link" data-act="toggle">${p.is_active ? 'отключить' : 'включить'}</button>` : ''}
             ${owner ? ` · <button class="link" data-act="move">передать</button> · <button class="link danger" data-act="del">удалить</button>` : ''}</td></tr>`;
     body.innerHTML = `<form class="adm-new" id="pNew">
@@ -573,6 +574,8 @@
         if (b.dataset.act === 'phone') { const v = prompt('Телефон партнёра (пусто — удалить)', p.phone || ''); if (v !== null) await adminCall({ action: 'update_partner', id, phone: v.trim() || null }); }
         if (b.dataset.act === 'pass') { const v = prompt('Новый пароль (от 8 символов)'); if (v) await adminCall({ action: 'update_partner', id, password: v }); }
         if (b.dataset.act === 'limit') { const v = prompt('Лимит активных ставок, $ (пусто — без лимита)', p.max_active_usd || ''); if (v !== null) await adminCall({ action: 'update_partner', id, max_active_usd: +v || null }); }
+        if (b.dataset.act === 'market' && confirm(`${p.market_access ? 'Закрыть' : 'Открыть'} партнёру «${p.display_name}» сравнение с рынком и статистику торгов (Excel)?`))
+          await adminCall({ action: 'update_partner', id, market_access: !p.market_access });
         if (b.dataset.act === 'toggle' && confirm(`${p.is_active ? 'Отключить' : 'Включить'} ${p.display_name}?`)) await adminCall({ action: 'update_partner', id, is_active: !p.is_active });
         if (b.dataset.act === 'move') {
           const to = await pickManager(managers.filter(m => m.id !== p.manager_id), `Передать партнёра «${p.display_name}» менеджеру`); if (!to) return;
@@ -850,6 +853,24 @@
     return pick.map(([t, x]) => `<li><span class="hint">${t}</span> <a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.name || x.model || '')}</a>
       · ${x.mileage ? fmtKm(x.mileage) + ' км' : 'пробег —'} · <b>${usd(x[key])}</b></li>`).join('');
   }
+  // итоги торгов K Car по той же модели (год ±1, похожий пробег) — за сколько ушли
+  async function kcBlock(lot) {
+    if (!lot.modelKey || !lot.year) return '';
+    const { data } = await sb.from('kc_sales').select('id,name,make,model,grade,year,mileage,status,final_usd,start_usd,auction_at,url')
+      .eq('model_key', lot.modelKey).gte('year', lot.year - 1).lte('year', lot.year + 1).order('auction_at', { ascending: false }).limit(1000);
+    const all = (data || []).map(x => ({ ...x, name: `${x.make !== 'Other' ? x.make + ' ' : ''}${x.model || ''}` }));
+    if (!all.length) return '';
+    const [a, b] = kmRange(lot.mileage);
+    const near = b ? all.filter(x => x.mileage == null || (x.mileage >= a && x.mileage <= b)) : all;
+    const list = near.length ? near : all;
+    const kmNote = b ? (near.length ? `пробег ${fmtKm(a)}–${fmtKm(b)} км` : 'с похожим пробегом нет — показаны все пробеги') : 'пробег любой';
+    const sold = list.filter(x => x.status === 'sold' && x.final_usd > 0);
+    const stats = arr => `мин <b>${usd(Math.min(...arr))}</b> · медиана <b>${usd(median(arr))}</b> · макс <b>${usd(Math.max(...arr))}</b>`;
+    return `<div class="mk-src"><div class="mk-h"><b>K Car — итоги торгов</b><span class="hint">${esc(String(lot.year - 1))}–${esc(String(lot.year + 1))} г., ${kmNote}</span></div>
+      ${sold.length ? `<div class="mk-row">Продано (${sold.length}), цена продажи: ${stats(sold.map(x => x.final_usd))}</div><ul class="mk-ex">${awExamples(sold, 'final_usd')}</ul>`
+        : '<div class="mk-row hint">Продаж этой модели на K Car пока не было в нашей статистике.</div>'}
+      ${list.length - sold.length ? `<div class="mk-row hint">Не проданы: ${list.length - sold.length}</div>` : ''}</div>`;
+  }
   async function awBlock(lot) {
     if (!lot.modelKey || !lot.year) return '';
     const { data } = await sb.from('comp_items').select('*').eq('model_key', lot.modelKey)
@@ -873,26 +894,26 @@
   async function extLinks(el, lot) {
     if (!el) return;
     const dzBtn = similarBtns(lot), url = dzBtn;
-    if (!STAFF()) {                          // партнёрам — ссылки на похожие объявления Dubizzle и Autowini
+    const market = STAFF() || ME?.market_access;     // сравнение с рынком: персональный доступ партнёра (даёт админ/менеджер)
+    if (!market) {                           // партнёрам — ссылки на похожие объявления Dubizzle и Autowini
       if (dzBtn) { el.innerHTML = `<div class="mk-dz">${dzBtn}</div>`; wireAw(el, lot); }
       return;
     }
     // ссылки на лот на сайтах аукционов (если лот продаётся на нескольких — все ссылки)
     const origins = [{ source: lot.source, url: lot.url, lotNo: lot.lotNo }, ...(lot.alsoOn || [])].filter(o => /^https?:/.test(o.url || ''));
-    const origHtml = origins.length ? `<div class="orig-links"><span class="hint">Лот на сайте аукциона${origins.length > 1 ? ' (дубли)' : ''}:</span>
+    const origHtml = STAFF() && origins.length ? `<div class="orig-links"><span class="hint">Лот на сайте аукциона${origins.length > 1 ? ' (дубли)' : ''}:</span>
       ${origins.map(o => `<a class="btn" href="${esc(o.url)}" target="_blank" rel="noopener">${esc(SRC[o.source] || o.source)}${o.lotNo ? ' · лот ' + esc(o.lotNo) : ''} ↗</a>`).join('')}</div>` : '';
-    el.innerHTML = origHtml + `<div class="market"><div class="mk-title">Сравнение с рынком <span class="hint">видно только админу</span></div>
+    el.innerHTML = origHtml + `<div class="market"><div class="mk-title">Сравнение с рынком${STAFF() ? ' <span class="hint">видно админу, менеджерам и партнёрам с доступом</span>' : ''}</div>
       <div id="mkAw"><p class="hint">Загружаю Autowini…</p></div>
-      <div class="mk-xls"><button type="button" class="btn" id="awXls">📊 Статистика Autowini (Excel)</button>
-        <span class="hint">та же модель, год ±1, похожий пробег · листы «Целые» и «Битые» · ссылки на ZIP с фото</span></div>
-      <div class="mk-xls"><button type="button" class="btn" id="kcXls">📊 Итоги торгов K Car (Excel)</button>
-        <span class="hint">за сколько ушли такие же машины на K Car: та же модель, год ±1, похожий пробег · с тех. листом</span></div>
+      <div id="mkKc"></div>
+      <div class="mk-xls"><button type="button" class="btn" id="awXls">📊 Статистика торгов (Excel)</button>
+        <span class="hint">Autowini и K Car в одном файле · та же модель, год ±1, похожий пробег · листы «Целые» и «Битые», столбец «Аукцион» · тех. лист K Car · ZIP с фото Autowini</span></div>
       ${url ? `<div class="mk-dz"></div>` : ''}</div>`;
     if (url) { el.querySelector('.mk-dz').innerHTML = dzBtn; wireAw(el, lot); }
     el.querySelector('#awXls').onclick = e => awExcel(e.currentTarget, lot);
-    el.querySelector('#kcXls').onclick = e => awExcel(e.currentTarget, lot, 'kc-stats');
     try { el.querySelector('#mkAw').innerHTML = await awBlock(lot) || '<p class="hint">Нет данных о модели для сравнения.</p>'; }
     catch (e) { el.querySelector('#mkAw').innerHTML = `<p class="hint">Autowini: ${esc(e.message)}</p>`; }
+    try { el.querySelector('#mkKc').innerHTML = await kcBlock(lot); } catch (e) { /* итогов K Car пока нет */ }
   }
 
   // ------------------------------------------------------------ связь с каталогом
