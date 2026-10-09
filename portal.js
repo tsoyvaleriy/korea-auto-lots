@@ -517,7 +517,7 @@
           <td>${pair(p.commission_pct, p.commission_pct_dmg, v => +v + '%')}</td><td>${pair(p.service_usd, p.service_usd_dmg, usd)}</td><td>${pair(p.freight_usd, p.freight_usd_dmg, usd)}</td>
           <td>${p.max_active_usd ? usd(p.max_active_usd) : '—'}</td><td>${seenAgo(p.last_seen_at)}${p.visits ? `<br><span class="hint">визитов: ${p.visits}</span>` : ''}</td><td>${p.is_active ? '<span class="g-good">активен</span>' : '<span class="g-bad">отключён</span>'}</td>
           <td><button class="link" data-act="terms">условия</button> · <button class="link" data-act="name">имя</button> · <button class="link" data-act="phone">телефон</button> · <button class="link" data-act="pass">пароль</button> · <button class="link" data-act="limit">лимит</button>
-            ${p.role === 'partner' ? ` · <button class="link" data-act="market" title="Сравнение с рынком и Excel-статистика торгов">${p.market_access ? '📊 рынок: вкл' : 'рынок: выкл'}</button>` : ''}
+            ${p.role === 'partner' ? ` · <button class="link" data-act="market" title="Сравнение с рынком, Excel-статистика торгов и ссылки «Похожие на Dubizzle / Autowini»">${p.market_access ? '📊 рынок: вкл' : 'рынок: выкл'}</button>` : ''}
             ${p.id !== ME.id ? ` · <button class="link" data-act="toggle">${p.is_active ? 'отключить' : 'включить'}</button>` : ''}
             ${owner ? ` · <button class="link" data-act="move">передать</button> · <button class="link danger" data-act="del">удалить</button>` : ''}</td></tr>`;
     body.innerHTML = `<form class="adm-new" id="pNew">
@@ -574,7 +574,7 @@
         if (b.dataset.act === 'phone') { const v = prompt('Телефон партнёра (пусто — удалить)', p.phone || ''); if (v !== null) await adminCall({ action: 'update_partner', id, phone: v.trim() || null }); }
         if (b.dataset.act === 'pass') { const v = prompt('Новый пароль (от 8 символов)'); if (v) await adminCall({ action: 'update_partner', id, password: v }); }
         if (b.dataset.act === 'limit') { const v = prompt('Лимит активных ставок, $ (пусто — без лимита)', p.max_active_usd || ''); if (v !== null) await adminCall({ action: 'update_partner', id, max_active_usd: +v || null }); }
-        if (b.dataset.act === 'market' && confirm(`${p.market_access ? 'Закрыть' : 'Открыть'} партнёру «${p.display_name}» сравнение с рынком и статистику торгов (Excel)?`))
+        if (b.dataset.act === 'market' && confirm(`${p.market_access ? 'Закрыть' : 'Открыть'} партнёру «${p.display_name}» сравнение с рынком, статистику торгов (Excel) и ссылки «Похожие на Dubizzle / Autowini»?`))
           await adminCall({ action: 'update_partner', id, market_access: !p.market_access });
         if (b.dataset.act === 'toggle' && confirm(`${p.is_active ? 'Отключить' : 'Включить'} ${p.display_name}?`)) await adminCall({ action: 'update_partner', id, is_active: !p.is_active });
         if (b.dataset.act === 'move') {
@@ -895,10 +895,7 @@
     if (!el) return;
     const dzBtn = similarBtns(lot), url = dzBtn;
     const market = STAFF() || ME?.market_access;     // сравнение с рынком: персональный доступ партнёра (даёт админ/менеджер)
-    if (!market) {                           // партнёрам — ссылки на похожие объявления Dubizzle и Autowini
-      if (dzBtn) { el.innerHTML = `<div class="mk-dz">${dzBtn}</div>`; wireAw(el, lot); }
-      return;
-    }
+    if (!market) { el.innerHTML = ''; return; }   // без доступа — ни сравнения с рынком, ни ссылок на похожие (Dubizzle, Autowini)
     // ссылки на лот на сайтах аукционов (если лот продаётся на нескольких — все ссылки)
     const origins = [{ source: lot.source, url: lot.url, lotNo: lot.lotNo }, ...(lot.alsoOn || [])].filter(o => /^https?:/.test(o.url || ''));
     const origHtml = STAFF() && origins.length ? `<div class="orig-links"><span class="hint">Лот на сайте аукциона${origins.length > 1 ? ' (дубли)' : ''}:</span>
