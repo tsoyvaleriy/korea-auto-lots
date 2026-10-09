@@ -376,7 +376,7 @@ window.startCatalog = function (DATA, P) {
     return `<div class="diagram lay">
       <div class="lay-box" style="aspect-ratio:${lay.w}/${lay.h}">
         <img src="${esc(lay.draw)}" alt="Схема кузова" loading="lazy">
-        ${lay.parts.map(p => `<img src="${esc(p.img)}" alt="" loading="lazy"${p.box ? ` style="left:${p.box[0] / lay.w * 100}%;top:${p.box[1] / lay.h * 100}%;width:${p.box[2] / lay.w * 100}%;height:${p.box[3] / lay.h * 100}%;filter:none"` : ''}>`).join('')}
+        ${lay.parts.map(p => `<img src="${esc(p.img)}" alt="" loading="lazy"${p.box ? ` style="left:${p.box[0] / lay.w * 100}%;top:${p.box[1] / lay.h * 100}%;width:auto;height:${p.box[3] / lay.h * 100}%;filter:none"` : ''}>`).join('')}
         ${labels}
       </div>
       <div class="legend">${legendTable()}
