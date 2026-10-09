@@ -38,7 +38,7 @@ window.startCatalog = function (DATA, P) {
   }
 
   // ------------------------------------------------------------ состояние
-  const DEF = { tab: 'whole', q: '', src: [], make: '', model: '', yFrom: '', yTo: '', pFrom: '', pTo: '', km: 200000, fuel: [], tm: [], sheet: false, noRepl: false, hasPrice: false, active: true, sort: 'ends', origin: '', makes: [], models: [] };
+  const DEF = { tab: 'whole', q: '', src: [], make: '', model: '', yFrom: '', yTo: '', pFrom: '', pTo: '', km: 200000, fuel: [], tm: [], sheet: false, noRepl: false, hasPrice: false, active: true, sort: 'ends', origin: '', makes: [], models: [], hd: [] };
   // подбор из Telegram-бота: корейские / импортные, несколько марок и моделей
   const KR_MAKES = ['Hyundai', 'Kia', 'Genesis', 'KGM', 'Renault', 'Chevrolet'];
   let state = { ...DEF, ...readHash() };
@@ -55,7 +55,10 @@ window.startCatalog = function (DATA, P) {
 
   // ------------------------------------------------------------ фильтрация
   const now = Date.now();
-  const ended = l => !l.negotiable && l.endsAt && new Date(l.endsAt).getTime() < now - 3600e3;
+  // время торгов на аукционах — корейское (KST); лот исчезает с сайта ровно в момент, который показывает таймер
+  const endTs = l => l.endsAt ? Date.parse(/Z$|[+-]\d\d:?\d\d$/.test(l.endsAt) ? l.endsAt : l.endsAt + '+09:00') : NaN;
+  const kstStr = (l, o) => new Date(endTs(l)).toLocaleString('ru-RU', { timeZone: 'Asia/Seoul', ...o }) + ' KST';
+  const ended = l => !l.negotiable && !!l.endsAt && endTs(l) <= Date.now();
   const replaced = l => l.replaced ?? (l.inspection?.marks?.['Заменено'] || []).length > 0;
   const hasSheet = l => l.hasSheet ?? !!(l.inspection && (Object.keys(l.inspection.panels || {}).length || l.inspection.items?.length || l.inspection.grades?.length || l.inspection.sheetImages?.length || l.inspection.sheetUrl || Object.keys(l.inspection.marks || {}).length));
   const title = l => `${l.make !== 'Other' ? l.make + ' ' : ''}${l.model}`.trim();
@@ -68,6 +71,7 @@ window.startCatalog = function (DATA, P) {
     const q = state.q.trim().toLowerCase();
     return baseSet().filter(l => {
       if (q && !`${title(l)} ${l.grade} ${l.lotNo} ${l.vin} ${l.plate} ${l.location}`.toLowerCase().includes(q)) return false;
+      if (except !== 'hd' && state.hd.length && !state.hd.includes(l.hdType)) return false;
       if (except !== 'src' && state.src.length && !srcsOf(l).some(s => state.src.includes(s))) return false;
       if (except !== 'make' && state.make && l.make !== state.make) return false;
       if (except !== 'model' && except !== 'make' && state.model && l.model !== state.model) return false;
@@ -116,6 +120,13 @@ window.startCatalog = function (DATA, P) {
     filtered('src').forEach(l => srcsOf(l).forEach(s => { srcCount[s] = (srcCount[s] || 0) + 1; }));
     const srcs = Object.entries(DATA.sources).filter(([, s]) => s.category === state.tab || state.tab === 'wish');
     chips($('#fSource'), 'src', srcs.map(([id, s]) => [id, s.name, srcCount[id] || 0]));
+
+    const hdTab = state.tab === 'heydealer';
+    $('#gHd').hidden = !hdTab;
+    if (hdTab) {
+      const hc = countBy(filtered('hd'), l => l.hdType);
+      chips($('#fHd'), 'hd', [['self', 'Self (обычные торги)', hc.self || 0], ['zero', 'Zero', hc.zero || 0], ['fixed', 'По желаемой цене', hc.fixed || 0]]);
+    }
 
     const oc = countBy(filtered('origin').filter(l => l.make !== 'Other'), l => KR_MAKES.includes(l.make) ? 'kr' : 'imp');
     $('#fOrigin').innerHTML = [['kr', 'Корейские'], ['imp', 'Импортные']].map(([v, t]) =>
@@ -178,6 +189,7 @@ window.startCatalog = function (DATA, P) {
     if (state.q) add(`«${state.q}»`, () => state.q = '');
     state.src.forEach(s => add(DATA.sources[s]?.name || s, () => state.src = state.src.filter(x => x !== s)));
     if (state.origin) add(state.origin === 'kr' ? 'Корейские' : 'Импортные', () => state.origin = '');
+    state.hd.forEach(v => add({ self: 'Self', zero: 'Zero', fixed: 'По желаемой цене' }[v] || v, () => state.hd = state.hd.filter(x => x !== v)));
     if (state.make) add(state.make, () => { state.make = ''; state.model = ''; });
     if (state.model) add(state.model, () => state.model = '');
     if (state.yFrom || state.yTo) add(`${state.yFrom || '…'}–${state.yTo || '…'} г.`, () => { state.yFrom = state.yTo = ''; });
@@ -194,8 +206,8 @@ window.startCatalog = function (DATA, P) {
   // ------------------------------------------------------------ карточки
   function endsLabel(l) {
     if (!l.endsAt) return '';
-    const d = new Date(l.endsAt), diff = d - Date.now();
-    const t = d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const diff = endTs(l) - Date.now();
+    const t = kstStr(l, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     if (diff < 0) return `<div class="ends">${l.negotiable ? 'не продан, торг возможен' : 'торги прошли'}<br>${t}</div>`;
     const h = Math.floor(diff / 3600e3);
     const left = h < 48 ? `через ${h} ч ${Math.floor(diff / 60e3) % 60} мин` : `через ${Math.floor(h / 24)} дн`;
@@ -461,7 +473,7 @@ window.startCatalog = function (DATA, P) {
       ['КПП', esc(l.transmission || '—')], ['Объём', l.engineCc ? fmt(l.engineCc) + ' см³' : '—'], ['Цвет', COLOR[l.color] || '—'],
       ['VIN', esc(l.vin || '—')], ['Госномер', esc(l.plate || '—')],
       ['Местонахождение', esc(l.location || '—')],
-      [l.source === 'heydealer' ? 'Окончание торгов' : 'Торги', l.endsAt ? new Date(l.endsAt).toLocaleString('ru-RU') : '—'], ['Статус', esc(l.statusRu || '—')], ['Стоянка / линия', esc(l.parking || '—')], ['Использование', esc(l.useRu || '—')],
+      [l.source === 'heydealer' ? 'Окончание торгов' : 'Торги', l.endsAt ? kstStr(l) : '—'], ['Статус', esc(l.statusRu || '—')], ['Стоянка / линия', esc(l.parking || '—')], ['Использование', esc(l.useRu || '—')],
     ];
     $('#modalBox').innerHTML = `<button class="m-close" data-close>✕</button>
       <div class="m-grid">
@@ -609,6 +621,14 @@ window.startCatalog = function (DATA, P) {
     + ` · только авто от ${DATA.minYear || 2016} г.`;
 
   updateCounts();
+  // каждую минуту убираем лоты, у которых наступило время торгов (страницу перезагружать не нужно)
+  let liveCount = LOTS.filter(l => !ended(l)).length;
+  setInterval(() => {
+    const n = LOTS.filter(l => !ended(l)).length;
+    if (n === liveCount) return;
+    liveCount = n; updateCounts();
+    if (!['bids', 'admin'].includes(state.tab)) render();
+  }, 60e3);
   // открыть лот по ссылке из Telegram: …#lot=<id>
   const m = location.hash.match(/^#lot=(.+)$/);
   if (m) { const id = decodeURIComponent(m[1]); history.replaceState(null, '', location.pathname); state.tab = BY_ID[id]?.category || state.tab; render(); openLot(id); }
