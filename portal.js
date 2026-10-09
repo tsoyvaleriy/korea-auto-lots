@@ -772,6 +772,21 @@
     'renault|qm6': 'koleos', 'renault|sm6': 'talisman', 'renault|xm3': 'arkana', 'renault|qm3': 'captur', 'renault|sm5': 'safrane',
   };
   // пробег: ±25% (но не уже ±15 000 км), округление до 5 000 — чтобы в выдаче были сопоставимые машины
+  // поколение (кузов) модели: код в скобках «(G60)», «(NQ5)», коды BMW/Mercedes «G30», «W213» и номер поколения «4th Gen», «4세대».
+  // Разные поколения в сравнение не попадают; если у одной из машин поколение не указано — сравниваем.
+  function genOf(s) {
+    s = String(s || '');
+    const code = new Set(), num = new Set();
+    for (const m of s.matchAll(/\(([A-Z]{1,3}\d{1,3}[A-Z]?)\)/gi)) code.add(m[1].toUpperCase());
+    for (const m of s.matchAll(/(?:^|[^A-Za-z0-9])([EFGU]\d{2}|[WVXHC]\d{3})(?![A-Za-z0-9])/g)) if (!/^C\d{3}$/.test(m[1]) || /\(C\d{3}\)/.test(s)) code.add(m[1].toUpperCase());
+    for (const m of s.matchAll(/(?:^|[^A-Za-z0-9])(IG|HG|TG|LF|YF|NF|MD|AD|HD|DM|TM|UM|XM|QL|SL|TL|YP|JF|DL3|DN8)(?![A-Za-z0-9])/g)) code.add(m[1]);   // Hyundai/Kia без цифр
+    for (const m of s.matchAll(/(\d{1,2})\s*(?:st|nd|rd|th)?[\s-]*gen(?:eration)?\b|(\d{1,2})\s*세대/gi)) num.add(m[1] || m[2]);
+    return { code, num };
+  }
+  const meet = (a, b) => !a.size || !b.size || [...a].some(x => b.has(x));
+  const sameGen = (a, b) => { const x = genOf(a), y = genOf(b); return meet(x.code, y.code) && meet(x.num, y.num); };
+  const lotGen = l => `${l.model || ''} ${l.grade || ''} ${l.modelKo || ''}`;
+
   function kmRange(km) {
     if (!(km > 0)) return [0, 0];
     const d = Math.max(km * 0.25, 15000), r = v => Math.round(v / 5000) * 5000;
@@ -813,7 +828,7 @@
       const { data: s } = await sb.auth.getSession();
       const r = await fetch(CFG.url + '/functions/v1/' + fn, {
         method: 'POST', headers: { 'Content-Type': 'application/json', apikey: CFG.anonKey, Authorization: 'Bearer ' + s.session.access_token },
-        body: JSON.stringify({ mk: lot.modelKey, y: lot.year || 0, km_lo: a, km_hi: b, title: `${titleOf(lot)} ${lot.year || ''}` }),
+        body: JSON.stringify({ mk: lot.modelKey, y: lot.year || 0, km_lo: a, km_hi: b, gen: lotGen(lot), title: `${titleOf(lot)} ${lot.year || ''}` }),
       });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'ошибка ' + r.status);
       const blob = await r.blob();
@@ -830,7 +845,7 @@
     const btn = root.querySelector('[data-aw-btn]'); if (!btn) return;
     const [a, b] = kmRange(lot.mileage);
     const { data } = await sb.rpc('similar_aw', { mk: lot.modelKey, y: lot.year || 0, km_lo: a, km_hi: b });
-    const list = data || [];
+    const list = (data || []).filter(x => sameGen(lotGen(lot), x.name));
     btn.disabled = !list.length;
     btn.textContent = list.length ? `Похожие на Autowini (${list.length})` : 'На Autowini похожих нет';
     btn.title = 'Та же модель, год ±1, похожий пробег';
@@ -858,7 +873,8 @@
     if (!lot.modelKey || !lot.year) return '';
     const { data } = await sb.from('kc_sales').select('id,name,make,model,grade,year,mileage,status,final_usd,start_usd,auction_at,url')
       .eq('model_key', lot.modelKey).gte('year', lot.year - 1).lte('year', lot.year + 1).order('auction_at', { ascending: false }).limit(1000);
-    const all = (data || []).map(x => ({ ...x, name: `${x.make !== 'Other' ? x.make + ' ' : ''}${x.model || ''}` }));
+    const all = (data || []).map(x => ({ ...x, name: `${x.make !== 'Other' ? x.make + ' ' : ''}${x.model || ''}` }))
+      .filter(x => sameGen(lotGen(lot), `${x.model || ''} ${x.grade || ''}`));
     if (!all.length) return '';
     const [a, b] = kmRange(lot.mileage);
     const near = b ? all.filter(x => x.mileage == null || (x.mileage >= a && x.mileage <= b)) : all;
@@ -875,7 +891,7 @@
     if (!lot.modelKey || !lot.year) return '';
     const { data } = await sb.from('comp_items').select('*').eq('model_key', lot.modelKey)
       .gte('year', lot.year - 1).lte('year', lot.year + 1).limit(1000);
-    const all = data || [];
+    const all = (data || []).filter(x => sameGen(lotGen(lot), `${x.name || ''} ${x.model || ''}`));
     const [a, b] = kmRange(lot.mileage);
     const near = b ? all.filter(x => x.mileage == null || (x.mileage >= a && x.mileage <= b)) : all;
     const list = near.length ? near : all;
