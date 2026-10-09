@@ -441,6 +441,7 @@ window.startCatalog = function (DATA, P) {
     if (marks.length && !s.layout) h += '<div class="marks">' + marks.map(([k, v]) =>
       `<div class="mark ${/Замен/.test(k) ? 'bad' : /Ремонт|ремонт|Окрас|Рихтовка/.test(k) ? 'mid' : ''}"><b>${esc(k)} (${v.length})</b>${v.map(esc).join(', ')}</div>`).join('') + '</div>';
     if (s.paint?.rows?.length) h += paintHtml(s.paint);
+    if (s.engineSound) h += `<p><a href="${esc(s.engineSound)}" target="_blank" rel="noreferrer">🔊 Звук двигателя (видео оценщика) ↗</a></p>`;
     if (s.accidents) h += `<p><b>Страховая история:</b> ${esc(ru(s, 'accidents'))}</p>${orig(s, 'accidents')}`;
     if (s.legal?.length) h += `<p><b>Юридически:</b> ${s.legal.map(x => `${esc(x.name)} — <span class="${x.value === '0' ? 'g-good' : 'g-bad'}">${x.value === '0' ? 'нет' : esc(x.value)}</span>`).join(' · ')}</p>`;
     if (s.exterior) h += `<div class="group-title">Комментарий осмотрщика</div><div class="notes">${esc(ru(s, 'exterior'))}</div>${orig(s, 'exterior')}`;
@@ -501,7 +502,7 @@ window.startCatalog = function (DATA, P) {
       <div class="m-section">
         <h3>Описание</h3>
         ${l.notes ? `${l.notesOther ? `<div class="group-title">Описание на ${esc(DATA.sources[l.source]?.name || '')}</div>` : ''}<div class="notes">${esc(ru(l, 'notes'))}</div>${orig(l, 'notes')}` : '<p class="hint">Описания нет.</p>'}
-        ${l.notesOther ? `<div class="group-title">Описание на ${esc(DATA.sources[l.notesOtherSrc]?.name || '')}</div><div class="notes">${esc(ru(l, 'notesOther'))}</div>${orig(l, 'notesOther')}` : ''}
+        ${l.notesOther ? `<div class="group-title">${l.source === 'heydealer' ? 'Описание владельца (고객 설명)' : `Описание на ${esc(DATA.sources[l.notesOtherSrc]?.name || '')}`}</div><div class="notes">${esc(ru(l, 'notesOther'))}</div>${orig(l, 'notesOther')}` : ''}
         <h3>Аукционный лист / состояние</h3>
         ${sheetHtml(l)}
         <div id="salesBox"></div>
