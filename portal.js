@@ -71,12 +71,13 @@
   }
 
   // видеоинструкция на языке сайта (если нужного языка нет — русская)
+  const VIDEO_VER = 3;                          // меняйте при замене видео — иначе браузер покажет старое из кэша
   function showVideo(name = 'lesson') {         // lesson — как пользоваться сайтом, rules — правила ставок
     const lang = I18N.lang, d = document.createElement('div');
     d.className = 'vid-dlg';
     d.innerHTML = `<div class="vid-box"><button class="vid-x" aria-label="Закрыть">✕</button>
       <video controls autoplay playsinline preload="metadata" poster="media/${name}_poster.jpg">
-        <source src="media/${name}_${lang}.mp4" type="video/mp4"><source src="media/${name}_ru.mp4" type="video/mp4"></video></div>`;
+        <source src="media/${name}_${lang}.mp4?v=${VIDEO_VER}" type="video/mp4"><source src="media/${name}_ru.mp4?v=${VIDEO_VER}" type="video/mp4"></video></div>`;
     const close = () => { d.querySelector('video').pause(); d.remove(); document.removeEventListener('keydown', esc); };
     const esc = e => { if (e.key === 'Escape') close(); };
     d.onclick = e => { if (e.target === d || e.target.closest('.vid-x')) close(); };
