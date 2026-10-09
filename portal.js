@@ -684,7 +684,7 @@
     const s = lot?.category === 'damaged' ? '_dmg' : '';
     return { pct: +(p?.['commission_pct' + s] || 0), service: +(p?.['service_usd' + s] || 0), freight: +(p?.['freight_usd' + s] || 0) };
   };
-  const HD_FEE_KRW = 440000;            // комиссия HeyDealer и комиссия дилера-оформителя (каждая)
+  const HD_FEE_USD = 400;               // комиссия HeyDealer и комиссия дилера-оформителя (каждая), $
   async function calcPanel(el, lot) {
     if (!el) return;
     const isAdm = STAFF();
@@ -709,8 +709,8 @@
       const fee = Math.round(price * t.pct / 100);
       $('#calcPct').textContent = t.pct ? `${t.pct}%` : '';
       $('#calcFee').textContent = usd(fee); $('#calcSrv').textContent = usd(t.service); $('#calcFr').textContent = usd(t.freight);
-      // HeyDealer: 3% переоформление + 440 000 ₩ комиссия HeyDealer + 440 000 ₩ комиссия дилера-оформителя (показываем в $)
-      const hd = lot.source === 'heydealer' ? { tax: Math.round(price * 0.03), fee: Math.round(HD_FEE_KRW / RATE), dlr: Math.round(HD_FEE_KRW / RATE) } : null;
+      // HeyDealer: 3% переоформление + $400 комиссия HeyDealer + $400 комиссия дилера-оформителя
+      const hd = lot.source === 'heydealer' ? { tax: Math.round(price * 0.03), fee: HD_FEE_USD, dlr: HD_FEE_USD } : null;
       if (hd) { $('#calcHdTax').textContent = usd(hd.tax); $('#calcHdFee').textContent = usd(hd.fee); $('#calcHdDlr').textContent = usd(hd.dlr); }
       const total = price + fee + t.service + t.freight + (hd ? hd.tax + hd.fee + hd.dlr : 0);
       $('#calcTot').textContent = price ? usd(total) : '—';
