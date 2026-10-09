@@ -314,8 +314,20 @@
       h += `<div class="bid-mine">Ваша ставка: <b>${usd(mine.amount_usd)}</b> <span class="hint">от ${dateStr(mine.updated_at)}</span>${res ? '<br>' + res : ''}${fxLine(mine.amount_usd)}</div>`;
     }
     if (endMs) h += `<div class="bid-timer">${lot.source === 'heydealer' ? 'До окончания торгов' : 'До торгов'}: ${timer(lot.endsAt)} <span class="hint">· ${dateStr(lot.endsAt)} KST</span></div>`;
+    const buy = lot.hdType === 'fixed';           // HeyDealer «по желаемой цене» — мгновенный выкуп, кнопка «Купить»
     if (mine?.outcome && mine.outcome !== 'pending') {
       h += '</div>';
+    } else if (buy && mine) {
+      h += `<p class="hint">Заявка на покупку отправлена менеджеру — он свяжется с вами.</p></div>`;
+    } else if (buy && closed) {
+      h += `<p class="hint">Приём заявок закрыт (меньше ${LOCK_MIN} мин до окончания).</p></div>`;
+    } else if (buy) {
+      h += startUsd ? `<form class="bid-form buy-form">
+          <p class="hint">Мгновенный выкуп по желаемой цене продавца. Заявка уходит менеджеру, выкуп обязателен.</p>
+          <div class="bid-row"><button class="btn primary" type="submit">🛒 Купить за ${usd(startUsd)}</button></div>
+          <div id="bidFx">${fxLine(startUsd)}</div>
+          <input id="bidNote" placeholder="комментарий для менеджера (необязательно)">
+          <div class="bid-msg" id="bidMsg"></div></form></div>` : `<p class="hint">Цена продавца не указана — уточните у менеджера.</p></div>`;
     } else if (closed) {
       h += `<p class="hint">Приём ставок закрыт (меньше ${LOCK_MIN} мин до торгов).</p></div>`;
     } else {
@@ -333,13 +345,13 @@
     tick();
     const f = el.querySelector('.bid-form');
     if (!f) return;
-    const fx = () => { $('#bidFx').innerHTML = fxLine(+$('#bidAmt').value); };
-    $('#bidAmt').addEventListener('input', fx); fx();
+    if (!buy) { const fx = () => { $('#bidFx').innerHTML = fxLine(+$('#bidAmt').value); }; $('#bidAmt').addEventListener('input', fx); fx(); }
     f.onsubmit = async e => {
       e.preventDefault();
-      const amount = Math.round(+$('#bidAmt').value);
+      const amount = buy ? startUsd : Math.round(+$('#bidAmt').value);
       if (!amount) return;
-      if (!confirm(`${mine ? 'Повысить ставку' : 'Поставить ставку'} на ${titleOf(lot)} (лот ${lot.lotNo || '—'})?\n\nСумма: ${usd(amount)}${mine ? `\nБыло: ${usd(mine.amount_usd)}` : ''}`)) return;
+      if (buy ? !confirm(`Купить ${titleOf(lot)} (лот ${lot.lotNo || '—'}) за ${usd(amount)}?\n\nЭто мгновенный выкуп по желаемой цене продавца — после подтверждения выкуп обязателен.`) :
+      !confirm(`${mine ? 'Повысить ставку' : 'Поставить ставку'} на ${titleOf(lot)} (лот ${lot.lotNo || '—'})?\n\nСумма: ${usd(amount)}${mine ? `\nБыло: ${usd(mine.amount_usd)}` : ''}`)) return;
       const btn = f.querySelector('button'); btn.disabled = true;
       $('#bidMsg').textContent = 'Отправляю…'; $('#bidMsg').className = 'bid-msg';
       const { data, error } = await sb.functions.invoke('place-bid', { body: { lot_id: lot.id, amount_usd: amount, comment: $('#bidNote').value || null } });
@@ -348,7 +360,7 @@
       if (errText) { $('#bidMsg').textContent = errText; $('#bidMsg').className = 'bid-msg err'; return; }
       await loadMyBids();
       bidPanel(el, lot);
-      el.querySelector('.bid-box').insertAdjacentHTML('afterbegin', `<div class="bid-msg ok">✓ Ставка ${usd(amount)} принята${data?.telegram ? ' и отправлена менеджеру' : ''}</div>`);
+      el.querySelector('.bid-box').insertAdjacentHTML('afterbegin', `<div class="bid-msg ok">✓ ${buy ? 'Заявка на покупку' : 'Ставка'} ${usd(amount)} принята${data?.telegram ? ' и отправлена менеджеру' : ''}</div>`);
       CAT?.updateCounts();
     };
   }
