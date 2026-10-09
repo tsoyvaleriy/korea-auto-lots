@@ -71,12 +71,12 @@
   }
 
   // видеоинструкция на языке сайта (если нужного языка нет — русская)
-  function showVideo() {
+  function showVideo(name = 'lesson') {         // lesson — как пользоваться сайтом, rules — правила ставок
     const lang = I18N.lang, d = document.createElement('div');
     d.className = 'vid-dlg';
     d.innerHTML = `<div class="vid-box"><button class="vid-x" aria-label="Закрыть">✕</button>
-      <video controls autoplay playsinline preload="metadata" poster="media/lesson_poster.jpg">
-        <source src="media/lesson_${lang}.mp4" type="video/mp4"><source src="media/lesson_ru.mp4" type="video/mp4"></video></div>`;
+      <video controls autoplay playsinline preload="metadata" poster="media/${name}_poster.jpg">
+        <source src="media/${name}_${lang}.mp4" type="video/mp4"><source src="media/${name}_ru.mp4" type="video/mp4"></video></div>`;
     const close = () => { d.querySelector('video').pause(); d.remove(); document.removeEventListener('keydown', esc); };
     const esc = e => { if (e.key === 'Escape') close(); };
     d.onclick = e => { if (e.target === d || e.target.closest('.vid-x')) close(); };
@@ -269,6 +269,7 @@
         <button data-go="wish">♥ Избранное</button>
         ${STAFF() ? '<button data-go="admin">⚙️ Админ-панель</button>' : ''}
         <button data-video>▶ Видеоинструкция</button>
+        <button data-video-rules>▶ Правила ставок (видео)</button>
         <hr><button id="btnLogout" class="me-out">Выйти</button>
       </div></div>`);
     const menu = $('#meMenu'), btn = $('#meBtn');
@@ -280,6 +281,7 @@
       close(); $(`#tabs [data-tab="${b.dataset.go}"]`)?.click(); window.scrollTo(0, 0);
     });
     menu.querySelector('[data-video]').onclick = () => { close(); showVideo(); };
+    menu.querySelector('[data-video-rules]').onclick = () => { close(); showVideo('rules'); };
     $('#btnLogout').onclick = logout;
   }
 
