@@ -316,6 +316,8 @@ window.startCatalog = function (DATA, P) {
     XX: ['Замена (была)', 'bad'], W: ['Рихтовка/сварка (была)', 'mid'], P: ['Окрас (был)', 'low'],
     R: ['Требует ремонта', 'mid'], M: ['Требует регулировки', 'low'], X: ['Требует замены', 'bad'],
     A: ['Царапина', 'low'], U: ['Вмятина', 'low'], C: ['Коррозия', 'mid'], T: ['Трещина/скол', 'mid'],
+    '*': ['Лобовое стекло: дефект', 'mid'], L1: ['ЛКП немного толще нормы', 'low'], L2: ['ЛКП толще нормы (окрас)', 'mid'],
+    L3: ['ЛКП сильно толще (шпатлёвка/окрас)', 'bad'],
   };
   const PANELS = {
     front_bumper: ['Передний бампер', 'M70 8h160a10 10 0 0 1 10 10v14H60V18a10 10 0 0 1 10-10z', 150, 26],
@@ -374,7 +376,7 @@ window.startCatalog = function (DATA, P) {
     return `<div class="diagram lay">
       <div class="lay-box" style="aspect-ratio:${lay.w}/${lay.h}">
         <img src="${esc(lay.draw)}" alt="Схема кузова" loading="lazy">
-        ${lay.parts.map(p => `<img src="${esc(p.img)}" alt="" loading="lazy">`).join('')}
+        ${lay.parts.map(p => `<img src="${esc(p.img)}" alt="" loading="lazy"${p.box ? ` style="left:${p.box[0] / lay.w * 100}%;top:${p.box[1] / lay.h * 100}%;width:${p.box[2] / lay.w * 100}%;height:${p.box[3] / lay.h * 100}%;filter:none"` : ''}>`).join('')}
         ${labels}
       </div>
       <div class="legend">${legendTable()}
@@ -398,6 +400,9 @@ window.startCatalog = function (DATA, P) {
     const marks = Object.entries(s.marks || {});
     if (marks.length && !s.layout) h += '<div class="marks">' + marks.map(([k, v]) =>
       `<div class="mark ${/Замен/.test(k) ? 'bad' : /Ремонт|ремонт|Окрас|Рихтовка/.test(k) ? 'mid' : ''}"><b>${esc(k)} (${v.length})</b>${v.map(esc).join(', ')}</div>`).join('') + '</div>';
+    if (s.paint?.rows?.length) h += `<div class="group-title">Толщина ЛКП (замер HeyDealer)</div>${Object.keys(s.paint.panels || {}).length ? diagramHtml(s.paint.panels) : ''}
+      <div class="sheet-grid">${s.paint.rows.map(r => `<div><span>${esc(r.name)}</span><span class="${r.value === 'норма' ? 'g-good' : /сильно/.test(r.value) ? 'g-bad' : 'g-mid'}">${esc(r.value)}</span></div>`).join('')}</div>
+      ${s.paint.comment ? `<div class="notes">${esc(ru(s.paint, 'comment'))}</div>` : ''}`;
     if (s.accidents) h += `<p><b>Страховая история:</b> ${esc(ru(s, 'accidents'))}</p>${orig(s, 'accidents')}`;
     if (s.legal?.length) h += `<p><b>Юридически:</b> ${s.legal.map(x => `${esc(x.name)} — <span class="${x.value === '0' ? 'g-good' : 'g-bad'}">${x.value === '0' ? 'нет' : esc(x.value)}</span>`).join(' · ')}</p>`;
     if (s.exterior) h += `<div class="group-title">Комментарий осмотрщика</div><div class="notes">${esc(ru(s, 'exterior'))}</div>${orig(s, 'exterior')}`;

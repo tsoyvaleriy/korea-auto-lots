@@ -681,6 +681,7 @@
     const s = lot?.category === 'damaged' ? '_dmg' : '';
     return { pct: +(p?.['commission_pct' + s] || 0), service: +(p?.['service_usd' + s] || 0), freight: +(p?.['freight_usd' + s] || 0) };
   };
+  const HD_FEE_KRW = 440000;            // комиссия HeyDealer и комиссия дилера-оформителя (каждая)
   async function calcPanel(el, lot) {
     if (!el) return;
     const isAdm = STAFF();
@@ -693,6 +694,9 @@
         <div class="calc-row"><span>Комиссия <b id="calcPct"></b></span><span id="calcFee"></span></div>
         <div class="calc-row"><span>Сервисные расходы</span><span id="calcSrv"></span></div>
         <div class="calc-row"><span>Фрахт</span><span id="calcFr"></span></div>
+        ${lot.source === 'heydealer' ? `<div class="calc-row"><span>Переоформление на компанию дилера (3%)</span><span id="calcHdTax"></span></div>
+        <div class="calc-row"><span>Комиссия HeyDealer</span><span id="calcHdFee"></span></div>
+        <div class="calc-row"><span>Комиссия дилера, на которого оформляется авто</span><span id="calcHdDlr"></span></div>` : ''}
         <div class="calc-row total"><span>Итого</span><span id="calcTot"></span></div>
         <div id="calcFx"></div>
         <p class="hint" id="calcNote"></p></div>`;
@@ -702,8 +706,12 @@
       const fee = Math.round(price * t.pct / 100);
       $('#calcPct').textContent = t.pct ? `${t.pct}%` : '';
       $('#calcFee').textContent = usd(fee); $('#calcSrv').textContent = usd(t.service); $('#calcFr').textContent = usd(t.freight);
-      $('#calcTot').textContent = price ? usd(price + fee + t.service + t.freight) : '—';
-      $('#calcFx').innerHTML = price ? fxLine(price + fee + t.service + t.freight) : '';
+      // HeyDealer: 3% переоформление + 440 000 ₩ комиссия HeyDealer + 440 000 ₩ комиссия дилера-оформителя (показываем в $)
+      const hd = lot.source === 'heydealer' ? { tax: Math.round(price * 0.03), fee: Math.round(HD_FEE_KRW / RATE), dlr: Math.round(HD_FEE_KRW / RATE) } : null;
+      if (hd) { $('#calcHdTax').textContent = usd(hd.tax); $('#calcHdFee').textContent = usd(hd.fee); $('#calcHdDlr').textContent = usd(hd.dlr); }
+      const total = price + fee + t.service + t.freight + (hd ? hd.tax + hd.fee + hd.dlr : 0);
+      $('#calcTot').textContent = price ? usd(total) : '—';
+      $('#calcFx').innerHTML = price ? fxLine(total) : '';
       $('#calcNote').textContent = isAdm && !(PARTNERS || []).length ? 'Партнёров пока нет — условия задаются в «Админ → Партнёры».'
         : !t.pct && !t.service && !t.freight ? (isAdm ? 'У этого партнёра условия не заданы (Админ → Партнёры → условия).' : 'Условия ещё не заданы — обратитесь к менеджеру.') : '';
     };
@@ -794,13 +802,13 @@
       (aw ? `<button type="button" class="btn" data-aw-btn disabled>Похожие на Autowini…</button>` : '');
   }
   // Excel со статистикой Autowini по аналогичной модели (владелец и менеджеры)
-  async function awExcel(btn, lot) {
+  async function awExcel(btn, lot, fn = 'aw-stats') {
     const label = btn.textContent;
     btn.disabled = true; btn.textContent = 'Готовлю Excel…';
     try {
       const [a, b] = kmRange(lot.mileage);
       const { data: s } = await sb.auth.getSession();
-      const r = await fetch(CFG.url + '/functions/v1/aw-stats', {
+      const r = await fetch(CFG.url + '/functions/v1/' + fn, {
         method: 'POST', headers: { 'Content-Type': 'application/json', apikey: CFG.anonKey, Authorization: 'Bearer ' + s.session.access_token },
         body: JSON.stringify({ mk: lot.modelKey, y: lot.year || 0, km_lo: a, km_hi: b, title: `${titleOf(lot)} ${lot.year || ''}` }),
       });
@@ -877,9 +885,12 @@
       <div id="mkAw"><p class="hint">Загружаю Autowini…</p></div>
       <div class="mk-xls"><button type="button" class="btn" id="awXls">📊 Статистика Autowini (Excel)</button>
         <span class="hint">та же модель, год ±1, похожий пробег · листы «Целые» и «Битые» · ссылки на ZIP с фото</span></div>
+      <div class="mk-xls"><button type="button" class="btn" id="kcXls">📊 Итоги торгов K Car (Excel)</button>
+        <span class="hint">за сколько ушли такие же машины на K Car: та же модель, год ±1, похожий пробег · с тех. листом</span></div>
       ${url ? `<div class="mk-dz"></div>` : ''}</div>`;
     if (url) { el.querySelector('.mk-dz').innerHTML = dzBtn; wireAw(el, lot); }
     el.querySelector('#awXls').onclick = e => awExcel(e.currentTarget, lot);
+    el.querySelector('#kcXls').onclick = e => awExcel(e.currentTarget, lot, 'kc-stats');
     try { el.querySelector('#mkAw').innerHTML = await awBlock(lot) || '<p class="hint">Нет данных о модели для сравнения.</p>'; }
     catch (e) { el.querySelector('#mkAw').innerHTML = `<p class="hint">Autowini: ${esc(e.message)}</p>`; }
   }
