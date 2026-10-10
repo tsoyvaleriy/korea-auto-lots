@@ -452,3 +452,10 @@ body:has(#who) .tabs .in-cab { display: none; }
 .paint-legend { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 6px; }
 .paint-legend li { display: flex; align-items: center; gap: 8px; }
 .paint-legend i { width: 18px; height: 18px; border-radius: 3px; display: inline-block; border: 1px solid #b9c7d3; }
+
+/* HeyDealer «по желаемой цене»: большая зелёная кнопка «Купить» в калькуляции */
+.buy-btn { width: 100%; justify-content: center; margin-top: 14px; padding: 16px 22px; font-size: 19px; font-weight: 700;
+  background: #1f9d55; border-color: #1f9d55; color: #fff; border-radius: 14px; }
+.buy-btn:hover { background: #188a49; border-color: #188a49; }
+.buy-btn:disabled { opacity: .6; cursor: wait; }
+.buy-done { margin-top: 14px; padding: 14px 16px; border-radius: 14px; background: var(--green-soft); color: var(--green); font-weight: 700; text-align: center; }

@@ -71,7 +71,7 @@
   }
 
   // видеоинструкция на языке сайта (если нужного языка нет — русская)
-  const VIDEO_VER = 3;                          // меняйте при замене видео — иначе браузер покажет старое из кэша
+  const VIDEO_VER = 4;                          // меняйте при замене видео — иначе браузер покажет старое из кэша
   function showVideo(name = 'lesson') {         // lesson — как пользоваться сайтом, rules — правила ставок
     const lang = I18N.lang, d = document.createElement('div');
     d.className = 'vid-dlg';
@@ -271,6 +271,7 @@
         ${STAFF() ? '<button data-go="admin">⚙️ Админ-панель</button>' : ''}
         <button data-video>▶ Видеоинструкция</button>
         <button data-video-rules>▶ Правила ставок (видео)</button>
+        ${STAFF() ? '<button data-video-mgr>▶ Видео для менеджера</button>' : ''}
         <hr><button id="btnLogout" class="me-out">Выйти</button>
       </div></div>`);
     const menu = $('#meMenu'), btn = $('#meBtn');
@@ -283,6 +284,7 @@
     });
     menu.querySelector('[data-video]').onclick = () => { close(); showVideo(); };
     menu.querySelector('[data-video-rules]').onclick = () => { close(); showVideo('rules'); };
+    const vm = menu.querySelector('[data-video-mgr]'); if (vm) vm.onclick = () => { close(); showVideo('manager'); };
     $('#btnLogout').onclick = logout;
   }
 
@@ -325,12 +327,8 @@
     } else if (buy && closed) {
       h += `<p class="hint">Приём заявок закрыт (меньше ${LOCK_MIN} мин до окончания).</p></div>`;
     } else if (buy) {
-      h += startUsd ? `<form class="bid-form buy-form">
-          <p class="hint">Мгновенный выкуп по желаемой цене продавца. Заявка уходит менеджеру, выкуп обязателен.</p>
-          <div class="bid-row"><button class="btn primary" type="submit">🛒 Купить за ${usd(startUsd)}</button></div>
-          <div id="bidFx">${fxLine(startUsd)}</div>
-          <input id="bidNote" placeholder="комментарий для менеджера (необязательно)">
-          <div class="bid-msg" id="bidMsg"></div></form></div>` : `<p class="hint">Цена продавца не указана — уточните у менеджера.</p></div>`;
+      h += startUsd ? `<p class="hint">Мгновенный выкуп по желаемой цене продавца — кнопка «Купить» в калькуляции ниже.</p></div>`
+        : `<p class="hint">Цена продавца не указана — уточните у менеджера.</p></div>`;
     } else if (closed) {
       h += `<p class="hint">Приём ставок закрыт (меньше ${LOCK_MIN} мин до торгов).</p></div>`;
     } else {
@@ -700,15 +698,41 @@
     return { pct: +(p?.['commission_pct' + s] || 0), service: +(p?.['service_usd' + s] || 0), freight: +(p?.['freight_usd' + s] || 0) };
   };
   const HD_FEE_USD = 400;               // комиссия HeyDealer и комиссия дилера-оформителя (каждая), $
+  // «Купить» для HeyDealer «по желаемой цене» (заявка = ставка по цене продавца; сервер ставит цену сам)
+  function buyHtml(lot) {
+    const mine = MY[lot.id], startUsd = Math.round(lot.priceKRW / RATE);
+    const endMs = ts(lot.endsAt), closed = endMs && endMs - Date.now() < LOCK_MIN * 6e4;
+    if (mine) return `<div class="buy-done">✓ Заявка на покупку за ${usd(mine.amount_usd)} отправлена менеджеру</div>`;
+    if (closed) return `<p class="hint">Приём заявок закрыт (меньше ${LOCK_MIN} мин до окончания).</p>`;
+    return `<button type="button" class="btn buy-btn" id="buyBtn">🛒 Купить за ${usd(startUsd)}</button>
+      <p class="hint">Мгновенный выкуп: после подтверждения выкуп обязателен.</p><div class="bid-msg" id="buyMsg"></div>`;
+  }
+  function wireBuy(el, lot) {
+    const btn = el.querySelector('#buyBtn'); if (!btn) return;
+    btn.onclick = async () => {
+      const amount = Math.round(lot.priceKRW / RATE);
+      if (!confirm(`Купить ${titleOf(lot)} (лот ${lot.lotNo || '—'}) за ${usd(amount)}?\n\nЭто мгновенный выкуп по желаемой цене продавца — после подтверждения выкуп обязателен.`)) return;
+      btn.disabled = true; $('#buyMsg').textContent = 'Отправляю…'; $('#buyMsg').className = 'bid-msg';
+      const { data, error } = await sb.functions.invoke('place-bid', { body: { lot_id: lot.id, amount_usd: amount, comment: null } });
+      const errText = data?.error || (error && (await error.context?.json?.().catch(() => null))?.error) || error?.message;
+      if (errText) { btn.disabled = false; $('#buyMsg').textContent = errText; $('#buyMsg').className = 'bid-msg err'; return; }
+      await loadMyBids();
+      el.querySelector('#buyBox').innerHTML = buyHtml(lot);
+      bidPanel($('#bidBox'), lot);
+      CAT?.updateCounts();
+    };
+  }
   async function calcPanel(el, lot) {
     if (!el) return;
     const isAdm = STAFF();
     if (isAdm && !PARTNERS) PARTNERS = (await adminCall({ action: 'list_partners' }).catch(() => ({ partners: [] }))).partners.filter(p => p.role === 'partner');
     const startUsd = lot.category !== 'damaged' && lot.priceKRW ? Math.round(lot.priceKRW / RATE) : null;
     const base = MY[lot.id]?.amount_usd || startUsd || '';
+    const fixed = lot.hdType === 'fixed' && !!startUsd;      // HeyDealer «по желаемой цене» — цену не меняют, покупка кнопкой
     el.innerHTML = `<div class="calc">
         <div class="calc-h"><b>Калькуляция</b>${isAdm ? `<select id="calcWho">${(PARTNERS || []).map(p => `<option value="${p.id}">${esc(p.display_name)}</option>`).join('')}</select>` : `<span class="hint">по вашим условиям · ${lot.category === 'damaged' ? 'битые' : 'целые'}</span>`}</div>
-        <label class="calc-row"><span>Цена автомобиля</span><span class="calc-in">$<input type="number" id="calcPrice" min="0" step="50" value="${base}" placeholder="сумма"></span></label>
+        ${fixed ? `<div class="calc-row"><span>Цена автомобиля <span class="hint">(желаемая цена продавца)</span></span><b>${usd(startUsd)}</b><input type="hidden" id="calcPrice" value="${startUsd}"></div>`
+          : `<label class="calc-row"><span>Цена автомобиля</span><span class="calc-in">$<input type="number" id="calcPrice" min="0" step="50" value="${base}" placeholder="сумма"></span></label>`}
         <div class="calc-row"><span>Комиссия <b id="calcPct"></b></span><span id="calcFee"></span></div>
         <div class="calc-row"><span>Сервисные расходы</span><span id="calcSrv"></span></div>
         <div class="calc-row"><span>Фрахт</span><span id="calcFr"></span></div>
@@ -717,6 +741,7 @@
         <div class="calc-row"><span>Комиссия дилера, на которого оформляется авто</span><span id="calcHdDlr"></span></div>` : ''}
         <div class="calc-row total"><span>Итого</span><span id="calcTot"></span></div>
         <div id="calcFx"></div>
+        ${fixed ? `<div id="buyBox">${buyHtml(lot)}</div>` : ''}
         <p class="hint" id="calcNote"></p></div>`;
     const upd = () => {
       const who = isAdm ? (PARTNERS || []).find(p => p.id === $('#calcWho')?.value) : ME;
@@ -733,6 +758,7 @@
       $('#calcNote').textContent = isAdm && !(PARTNERS || []).length ? 'Партнёров пока нет — условия задаются в «Админ → Партнёры».'
         : !t.pct && !t.service && !t.freight ? (isAdm ? 'У этого партнёра условия не заданы (Админ → Партнёры → условия).' : 'Условия ещё не заданы — обратитесь к менеджеру.') : '';
     };
+    if (fixed) wireBuy(el, lot);
     $('#calcPrice').oninput = upd;
     if ($('#calcWho')) $('#calcWho').onchange = upd;
     // сумма ставки сразу попадает в калькуляцию
