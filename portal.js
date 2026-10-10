@@ -702,7 +702,7 @@
   function buyHtml(lot) {
     const mine = MY[lot.id], startUsd = Math.round(lot.priceKRW / RATE);
     const endMs = ts(lot.endsAt), closed = endMs && endMs - Date.now() < LOCK_MIN * 6e4;
-    if (mine) return `<div class="buy-done">✓ Заявка на покупку за ${usd(mine.amount_usd)} отправлена менеджеру</div>`;
+    if (mine) return `<div class="buy-done">✓ Заявка на покупку отправлена менеджеру (цена автомобиля ${usd(mine.amount_usd)})</div>`;
     if (closed) return `<p class="hint">Приём заявок закрыт (меньше ${LOCK_MIN} мин до окончания).</p>`;
     return `<button type="button" class="btn buy-btn" id="buyBtn">🛒 Купить за ${usd(startUsd)}</button>
       <p class="hint">Мгновенный выкуп: после подтверждения выкуп обязателен.</p><div class="bid-msg" id="buyMsg"></div>`;
@@ -711,13 +711,15 @@
     const btn = el.querySelector('#buyBtn'); if (!btn) return;
     btn.onclick = async () => {
       const amount = Math.round(lot.priceKRW / RATE);
-      if (!confirm(`Купить ${titleOf(lot)} (лот ${lot.lotNo || '—'}) за ${usd(amount)}?\n\nЭто мгновенный выкуп по желаемой цене продавца — после подтверждения выкуп обязателен.`)) return;
+      const total = +btn.dataset.total || amount;
+      if (!confirm(`Купить ${titleOf(lot)} (лот ${lot.lotNo || '—'}) за ${usd(total)}?\n\nЦена автомобиля ${usd(amount)} + расходы по калькуляции.\nЭто мгновенный выкуп по желаемой цене продавца — после подтверждения выкуп обязателен.`)) return;
       btn.disabled = true; $('#buyMsg').textContent = 'Отправляю…'; $('#buyMsg').className = 'bid-msg';
       const { data, error } = await sb.functions.invoke('place-bid', { body: { lot_id: lot.id, amount_usd: amount, comment: null } });
       const errText = data?.error || (error && (await error.context?.json?.().catch(() => null))?.error) || error?.message;
       if (errText) { btn.disabled = false; $('#buyMsg').textContent = errText; $('#buyMsg').className = 'bid-msg err'; return; }
       await loadMyBids();
       el.querySelector('#buyBox').innerHTML = buyHtml(lot);
+      toast(`Заявка на покупку за ${usd(total)} отправлена`);
       bidPanel($('#bidBox'), lot);
       CAT?.updateCounts();
     };
@@ -754,6 +756,7 @@
       if (hd) { $('#calcHdTax').textContent = usd(hd.tax); $('#calcHdFee').textContent = usd(hd.fee); $('#calcHdDlr').textContent = usd(hd.dlr); }
       const total = price + fee + t.service + t.freight + (hd ? hd.tax + hd.fee + hd.dlr : 0);
       $('#calcTot').textContent = price ? usd(total) : '—';
+      const bb = el.querySelector('#buyBtn'); if (bb) { bb.textContent = `🛒 Купить за ${usd(total)}`; bb.dataset.total = total; }
       $('#calcFx').innerHTML = price ? fxLine(total) : '';
       $('#calcNote').textContent = isAdm && !(PARTNERS || []).length ? 'Партнёров пока нет — условия задаются в «Админ → Партнёры».'
         : !t.pct && !t.service && !t.freight ? (isAdm ? 'У этого партнёра условия не заданы (Админ → Партнёры → условия).' : 'Условия ещё не заданы — обратитесь к менеджеру.') : '';
