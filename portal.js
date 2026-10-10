@@ -71,7 +71,7 @@
   }
 
   // видеоинструкция на языке сайта (если нужного языка нет — русская)
-  const VIDEO_VER = 4;                          // меняйте при замене видео — иначе браузер покажет старое из кэша
+  const VIDEO_VER = 5;                          // меняйте при замене видео — иначе браузер покажет старое из кэша
   function showVideo(name = 'lesson') {         // lesson — как пользоваться сайтом, rules — правила ставок
     const lang = I18N.lang, d = document.createElement('div');
     d.className = 'vid-dlg';
