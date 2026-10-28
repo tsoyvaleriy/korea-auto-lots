@@ -145,8 +145,36 @@
   }
 
   // ------------------------------------------------------------ статистика продаж
+  // HeyDealer: прошлые выставления этой машины и 매입 시세 (продажи той же модели) — цены в $ по текущему курсу
+  const HD_ACC = { none: ['без ДТП', 'g-good'], simple: ['простая замена', 'g-mid'], acc: ['было ДТП', 'g-bad'], unk: ['—', ''] };
+  const dRu = (d, approx) => d ? (approx ? '≈ ' : '') + new Date(d + 'T12:00:00').toLocaleDateString('ru-RU') : '—';
+  function hdHtml(lot) {
+    if (lot.source !== 'heydealer') return '';
+    let h = '';
+    const hist = lot.hdHist || [];
+    if (hist.length) h += `<h3>Эту машину уже выставляли</h3>
+      <div class="vin-hist">⚠️ Владелец выставлял автомобиль на HeyDealer ${hist.length} ${hist.length === 1 || hist.length > 4 ? 'раз' : 'раза'} до этого — лучшие предложения дилеров:</div>
+      <table class="adm-bids"><tr><th>Дата торгов</th><th>Лучшее предложение</th><th>Ставок</th></tr>
+        ${hist.map(x => `<tr><td>${dRu(x.date)}</td><td><b>${usd(x.krw / RATE)}</b></td><td>${x.bids || '—'}</td></tr>`).join('')}</table>`;
+    const mk = lot.hdMarket || [];
+    if (lot.hdMarket) {
+      const pr = mk.map(x => x.krw / RATE).sort((a, b) => a - b);
+      h += `<h3>매입 시세 — продажи этой модели на HeyDealer</h3>` + (mk.length ? `
+        <div class="stats sales-stats"><div><b>${usd(pr[Math.floor(pr.length / 2)])}</b><span>медиана · ${mk.length} продаж</span></div>
+          <div><b>${usd(pr[0])} – ${usd(pr[pr.length - 1])}</b><span>разброс</span></div></div>
+        <table class="adm-bids"><tr><th>Модель</th><th>Год</th><th>Пробег</th><th>Цена</th><th>ДТП</th><th>Дата продажи</th></tr>
+        ${mk.map(x => `<tr><td>${esc(titleOf(lot))}${x.grade ? ` <span class="hint">${esc(x.grade)}</span>` : ''}</td><td>${x.year || '—'}</td>
+          <td>${x.km ? Math.round(x.km).toLocaleString('ru-RU') + ' км' : '—'}</td><td><b>${usd(x.krw / RATE)}</b></td>
+          <td class="${HD_ACC[x.acc]?.[1] || ''}">${HD_ACC[x.acc]?.[0] || '—'}</td><td>${dRu(x.date, x.approx)}</td></tr>`).join('')}
+        </table><p class="hint">Лучшая ставка дилеров на завершённых торгах HeyDealer, ${lot.year ? `${lot.year - 1}–${lot.year + 1} г.` : 'все годы'}; пробег округлён HeyDealer, «≈» — дата примерная.</p>`
+        : `<p class="hint">Продаж этой модели${lot.year ? ` ${lot.year - 1}–${lot.year + 1} г.` : ''} на HeyDealer за последнее время нет.</p>`);
+    }
+    return h;
+  }
+
   async function salesPanel(el, lot) {
     if (!el || !lot) return;
+    const hd = hdHtml(lot);
     const key = lot.modelKey, y = lot.year;
     const [byModel, byVin] = await Promise.all([
       key ? sb.from('sales').select('*').eq('model_key', key).gte('year', (y || 0) - 1).lte('year', (y || 9999) + 1).order('sold_at', { ascending: false }).limit(40) : { data: [] },
@@ -155,12 +183,12 @@
     const list = (byModel.data || []).filter(x => x.price_usd);
     const vin = byVin.data || [];
     if (!list.length && !vin.length) {
-      el.innerHTML = `<h3>Цены продаж</h3><p class="hint">По этой модели${y ? ` (${y - 1}–${y + 1})` : ''} продаж пока не накопилось — статистика собирается с каждых торгов.</p>`;
+      el.innerHTML = hd + (lot.source === 'heydealer' ? '' : `<h3>Цены продаж</h3><p class="hint">По этой модели${y ? ` (${y - 1}–${y + 1})` : ''} продаж пока не накопилось — статистика собирается с каждых торгов.</p>`);
       return;
     }
     const prices = list.map(x => x.price_usd).sort((a, b) => a - b);
     const med = prices.length ? prices[Math.floor(prices.length / 2)] : null;
-    el.innerHTML = `<h3>Цены продаж</h3>` +
+    el.innerHTML = hd + `<h3>Цены продаж</h3>` +
       (vin.length ? `<div class="vin-hist">⚠️ Этот автомобиль уже продавался: ${vin.map(v => `${v.sold_at ? new Date(v.sold_at).toLocaleDateString('ru-RU') : ''} за <b>${usd(v.price_usd)}</b>`).join(', ')}</div>` : '') +
       (list.length ? `<div class="stats sales-stats">
           <div><b>${usd(med)}</b><span>медиана · ${list.length} продаж</span></div>
