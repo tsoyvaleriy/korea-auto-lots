@@ -495,12 +495,12 @@
           ${sorted.map((b, i) => `<tr class="${i === 0 ? 'lead' : ''}"><td>${esc(P_[b.partner_id]?.display_name || '?')}${OWNER() && P_[P_[b.partner_id]?.manager_id]?.role === 'manager' ? `<br><span class="hint">менеджер: ${esc(P_[P_[b.partner_id].manager_id].display_name)}</span>` : ''}</td><td><b>${usd(b.amount_usd)}</b></td>
             <td>${dateStr(b.updated_at)}</td><td>${esc(b.comment || '')}</td></tr>`).join('')}
         </table>
-        ${r ? `<div class="adm-res">Итог: <b>${esc(r.winner_partner_id ? (P_[r.winner_partner_id]?.display_name || 'партнёр') : (r.winner_label || 'сторонний покупатель'))}</b> за <b>${usd(r.price_usd)}</b>
+        ${r ? `<div class="adm-res">Итог: <b>${esc(r.winner_partner_id ? (P_[r.winner_partner_id]?.display_name || 'партнёр') : (r.winner_label || 'сторонний покупатель'))}</b>${r.bid_usd != null ? ` · ставка ${usd(r.bid_usd)}` : ''} · куплено по факту за <b>${usd(r.price_usd)}</b>
               ${r.note ? ' · ' + esc(r.note) : ''} <button class="link" data-clear="${esc(x.id)}">изменить</button></div>`
           : `<form class="adm-form" data-lot="${esc(x.id)}">
               <select name="winner">${opts}<option value="">Сторонний покупатель</option></select>
               <input name="label" placeholder="кто (если сторонний)">
-              <input name="price" type="number" min="1" placeholder="цена продажи, $" value="${sorted[0]?.amount_usd || ''}" required>
+              <input name="price" type="number" min="1" placeholder="куплено по факту, $" title="За сколько лот куплен по факту" value="${sorted[0]?.amount_usd || ''}" required>
               <input name="note" placeholder="заметка">
               <button class="btn primary">Сохранить итог</button></form>`}
       </div>`;
@@ -695,9 +695,9 @@
       sb.from('profiles').select('id,display_name'),
     ]);
     const P_ = Object.fromEntries((profs || []).map(p => [p.id, p.display_name]));
-    body.innerHTML = (res || []).length ? `<table class="adm-bids"><tr><th>Дата</th><th>Авто</th><th>Лот</th><th>Победитель</th><th>Цена</th><th>Заметка</th></tr>
+    body.innerHTML = (res || []).length ? `<table class="adm-bids"><tr><th>Дата</th><th>Авто</th><th>Лот</th><th>Победитель</th><th>Ставка партнёра</th><th>Куплено по факту</th><th>Заметка</th></tr>
       ${res.map(r => { const s = r.lot_snapshot || {}; return `<tr><td>${dateStr(r.set_at)}</td><td>${esc(titleOf(s))} ${esc(s.year || '')}</td><td>${esc(s.lotNo || '—')}</td>
-        <td>${esc(r.winner_partner_id ? P_[r.winner_partner_id] : (r.winner_label || 'сторонний'))}</td><td><b>${usd(r.price_usd)}</b></td><td>${esc(r.note || '')}</td></tr>`; }).join('')}</table>`
+        <td>${esc(r.winner_partner_id ? P_[r.winner_partner_id] : (r.winner_label || 'сторонний'))}</td><td>${r.bid_usd != null ? usd(r.bid_usd) : '—'}</td><td><b>${usd(r.price_usd)}</b></td><td>${esc(r.note || '')}</td></tr>`; }).join('')}</table>`
       : '<div class="empty">Итогов пока нет.</div>';
   }
 
