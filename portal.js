@@ -705,7 +705,7 @@
 
   // ---- техпаспорт машины (для инвойса на одну машину)
   const regOk = d => !!(d && d.vin && d.cbm && d.gross_kg && d.fuel && d.hs);
-  const FUELS = ['GASOLINE', 'DIESEL', 'LPG', 'HYBRID', 'PLUG-IN HYBRID', 'DIESEL HYBRID', 'ELECTRIC', 'HYDROGEN'];
+  const FUELS = ['GASOLINE', 'DIESEL', 'LPG', 'ELECTRIC', 'HYDROGEN'];   // гибриды пишем как GASOLINE
   const fileB64 = f => new Promise((ok, bad) => {
     const done = blob => { const rd = new FileReader(); rd.onload = () => ok(String(rd.result).split(',')[1]); rd.onerror = bad; rd.readAsDataURL(blob); };
     if (!/^image\//.test(f.type)) return done(f);
