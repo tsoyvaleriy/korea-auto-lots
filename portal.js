@@ -442,8 +442,8 @@
 
   // ------------------------------------------------------------ админка
   let ADM_TAB = 'bids', ADM_FILTER = 'open';
-  async function adminCall(body) {
-    const { data, error } = await sb.functions.invoke('admin', { body });
+  async function adminCall(body, fn = 'admin') {
+    const { data, error } = await sb.functions.invoke(fn, { body });
     const err = data?.error || (error && (await error.context?.json?.().catch(() => null))?.error) || error?.message;
     if (err) throw new Error(err);
     return data;
@@ -695,11 +695,34 @@
       sb.from('profiles').select('id,display_name'),
     ]);
     const P_ = Object.fromEntries((profs || []).map(p => [p.id, p.display_name]));
-    body.innerHTML = (res || []).length ? `<table class="adm-bids"><tr><th>Дата</th><th>Авто</th><th>Лот</th><th>Победитель</th><th>Ставка партнёра</th><th>Куплено по факту</th><th>Заметка</th></tr>
-      ${res.map(r => { const s = r.lot_snapshot || {}; return `<tr><td>${dateStr(r.set_at)}</td><td>${esc(titleOf(s))} ${esc(s.year || '')}</td><td>${esc(s.lotNo || '—')}</td>
-        <td>${esc(r.winner_partner_id ? P_[r.winner_partner_id] : (r.winner_label || 'сторонний'))}</td><td>${r.bid_usd != null ? usd(r.bid_usd) : '—'}</td><td><b>${usd(r.price_usd)}</b></td><td>${esc(r.note || '')}</td></tr>`; }).join('')}</table>`
-      : '<div class="empty">Итогов пока нет.</div>';
+    const who = r => r.winner_partner_id ? P_[r.winner_partner_id] : (r.winner_label || 'сторонний');
+    if (!(res || []).length) { body.innerHTML = '<div class="empty">Итогов пока нет.</div>'; return; }
+    body.innerHTML = `<div class="adm-bar"><button class="btn primary" id="invBtn" disabled>Сформировать инвойс</button>
+        <span class="hint" id="invHint">Отметьте машины одного покупателя — PDF и Excel придут вам в Telegram.</span></div>
+      <table class="adm-bids"><tr><th></th><th>Дата</th><th>Авто</th><th>Лот</th><th>Победитель</th><th>Ставка партнёра</th><th>Куплено по факту</th><th>Заметка</th></tr>
+      ${res.map(r => { const s = r.lot_snapshot || {}; return `<tr><td><input type="checkbox" class="inv-ck" data-lot="${esc(r.lot_id)}" data-buyer="${esc(r.winner_partner_id || 'label:' + (r.winner_label || ''))}"></td>
+        <td>${dateStr(r.set_at)}</td><td>${esc(titleOf(s))} ${esc(s.year || '')}</td><td>${esc(s.lotNo || '—')}</td>
+        <td>${esc(who(r))}</td><td>${r.bid_usd != null ? usd(r.bid_usd) : '—'}</td><td><b>${usd(r.price_usd)}</b></td><td>${esc(r.note || '')}</td></tr>`; }).join('')}</table>`;
+    const btn = $('#invBtn'), hint = $('#invHint');
+    const picked = () => [...body.querySelectorAll('.inv-ck:checked')];
+    body.onchange = e => {
+      if (!e.target.classList.contains('inv-ck')) return;
+      const p = picked(), buyers = new Set(p.map(x => x.dataset.buyer));
+      btn.disabled = !p.length || buyers.size > 1;
+      btn.textContent = p.length ? `Сформировать инвойс (${p.length})` : 'Сформировать инвойс';
+      hint.textContent = buyers.size > 1 ? 'В одном инвойсе — машины одного покупателя.' : 'Отметьте машины одного покупателя — PDF и Excel придут вам в Telegram.';
+    };
+    btn.onclick = async () => {
+      const ids = picked().map(x => x.dataset.lot);
+      btn.disabled = true; hint.textContent = 'Формирую инвойс…';
+      try {
+        const r = await adminCall({ lot_ids: ids }, 'invoice');
+        hint.textContent = `✅ Инвойс ${r.number} на ${usd(r.total)} отправлен вам в Telegram.`;
+      } catch (err) { hint.textContent = '⚠️ ' + err.message; }
+      btn.disabled = false;
+    };
   }
+
 
   // ------------------------------------------------------------ партнёрам — только доллары
   // Аукционы пишут суммы в вонах прямо в описаниях («хранение 300 000 ₩», «출고가격:13,150,000원», «보관료 25만»).
