@@ -28,7 +28,7 @@ window.startCatalog = function (DATA, P) {
     if (wish[id]) delete wish[id];
     else {
       const l = BY_ID[id];
-      wish[id] = { added: Date.now(), note: '', snap: { id: l.id, source: l.source, category: l.category, make: l.make, model: l.model, year: l.year, mileage: l.mileage, mileageApprox: l.mileageApprox, priceKRW: l.priceKRW, photos: (l.photos || []).slice(0, 1), url: l.url, endsAt: l.endsAt, lotNo: l.lotNo } };
+      wish[id] = { added: Date.now(), note: '', snap: { id: l.id, source: l.source, category: l.category, make: l.make, model: l.model, year: l.year, mileage: l.mileage, mileageApprox: l.mileageApprox, priceKRW: l.priceKRW, photos: (l.photos || []).slice(0, 1), url: l.url, endsAt: l.endsAt, lotNo: l.lotNo, srcs: [l.source, ...(l.alsoOn || []).map(a => a.source)] } };
     }
     store.set('wish', wish);
     P.favToggle?.(id, wish[id]);

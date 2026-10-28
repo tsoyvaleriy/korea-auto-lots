@@ -121,9 +121,16 @@
     } catch {}
     return favs;
   }
+  const AUTOBID_OWNER = '279b52f2-9e5c-4f60-ab72-461e425e9620';   // автоставка на битках — только владелец
   async function favToggle(id, entry) {
     if (entry) await sb.from('favorites').upsert({ partner_id: ME.id, lot_id: id, note: entry.note || null, lot_snapshot: entry.snap || null });
     else await sb.from('favorites').delete().eq('partner_id', ME.id).eq('lot_id', id);
+    const srcs = entry?.snap?.srcs || [entry?.snap?.source];
+    if (entry && ME.id === AUTOBID_OWNER && srcs.some(s => s === 'happycar' || s === 'jenomotors')) {
+      adminCall({ action: 'autobid_kick' })
+        .then(() => toast('🤖 Автоставка 1 000 000 ₩ запущена — результат придёт в Telegram'))
+        .catch(e => toast('Автоставка не запустилась: ' + e.message));
+    }
   }
   async function favNote(id, note) { await sb.from('favorites').update({ note }).eq('partner_id', ME.id).eq('lot_id', id); }
 
