@@ -557,7 +557,7 @@
           ${owner ? `<td>${p.role === 'partner' ? esc(mName(p.manager_id)) : `<span class="hint">${ROLE_RU[p.role]}</span>`}</td>` : ''}
           <td>${pair(p.commission_pct, p.commission_pct_dmg, v => +v + '%')}</td><td>${pair(p.service_usd, p.service_usd_dmg, usd)}</td><td>${pair(p.freight_usd, p.freight_usd_dmg, usd)}</td>
           <td>${p.max_active_usd ? usd(p.max_active_usd) : '—'}</td><td>${seenAgo(p.last_seen_at)}${p.visits ? `<br><span class="hint">визитов: ${p.visits}</span>` : ''}</td><td>${p.is_active ? '<span class="g-good">активен</span>' : '<span class="g-bad">отключён</span>'}</td>
-          <td><button class="link" data-act="terms">условия</button> · <button class="link" data-act="name">имя</button> · <button class="link" data-act="phone">телефон</button> · <button class="link" data-act="pass">пароль</button> · <button class="link" data-act="limit">лимит</button>
+          <td><button class="link" data-act="terms">условия</button> · <button class="link" data-act="name">имя</button> · <button class="link" data-act="phone">телефон</button> · <button class="link" data-act="inv" title="Покупатель и место доставки в инвойсах">реквизиты</button> · <button class="link" data-act="pass">пароль</button> · <button class="link" data-act="limit">лимит</button>
             ${p.role === 'partner' ? ` · <button class="link" data-act="market" title="Сравнение с рынком, Excel-статистика торгов и ссылки «Похожие на Dubizzle / Autowini»">${p.market_access ? '📊 рынок: вкл' : 'рынок: выкл'}</button>` : ''}
             ${p.id !== ME.id ? ` · <button class="link" data-act="toggle">${p.is_active ? 'отключить' : 'включить'}</button>` : ''}
             ${owner ? ` · <button class="link" data-act="move">передать</button> · <button class="link danger" data-act="del">удалить</button>` : ''}</td></tr>`;
@@ -612,6 +612,13 @@
           PARTNERS = null;
         }
         if (b.dataset.act === 'name') { const v = prompt('Имя для Telegram', p.display_name); if (v) await adminCall({ action: 'update_partner', id, display_name: v }); }
+        if (b.dataset.act === 'inv') {
+          const n = prompt('Инвойс — покупатель: ФИО (+ ID паспорта) или название компании', p.inv_name || p.display_name || ''); if (n === null) return;
+          const a = prompt('Инвойс — адрес покупателя', p.inv_address || ''); if (a === null) return;
+          const d = prompt('Инвойс — место доставки (Final destination), например: BISHKEK, KYRGYZSTAN', p.inv_dest || 'Dubai, United Arab Emirates'); if (d === null) return;
+          await adminCall({ action: 'update_partner', id, inv_name: n.trim() || null, inv_address: a.trim() || null, inv_dest: d.trim() || null });
+          PARTNERS = null;
+        }
         if (b.dataset.act === 'phone') { const v = prompt('Телефон партнёра (пусто — удалить)', p.phone || ''); if (v !== null) await adminCall({ action: 'update_partner', id, phone: v.trim() || null }); }
         if (b.dataset.act === 'pass') { const v = prompt('Новый пароль (от 8 символов)'); if (v) await adminCall({ action: 'update_partner', id, password: v }); }
         if (b.dataset.act === 'limit') { const v = prompt('Лимит активных ставок, $ (пусто — без лимита)', p.max_active_usd || ''); if (v !== null) await adminCall({ action: 'update_partner', id, max_active_usd: +v || null }); }
@@ -689,6 +696,61 @@
     return txt;
   }
 
+  // ---- техпаспорт машины (для инвойса на одну машину)
+  const regOk = d => !!(d && d.vin && d.cbm && d.gross_kg && d.fuel && d.hs);
+  const FUELS = ['GASOLINE', 'DIESEL', 'LPG', 'HYBRID', 'PLUG-IN HYBRID', 'DIESEL HYBRID', 'ELECTRIC', 'HYDROGEN'];
+  const fileB64 = f => new Promise((ok, bad) => {
+    const done = blob => { const rd = new FileReader(); rd.onload = () => ok(String(rd.result).split(',')[1]); rd.onerror = bad; rd.readAsDataURL(blob); };
+    if (!/^image\//.test(f.type)) return done(f);
+    const img = new Image();                                  // большие фото — сжимаем до 2400 px (читается лучше и грузится быстрее)
+    img.onload = () => { const k = Math.min(1, 2400 / Math.max(img.width, img.height)); const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(bl => done(bl), 'image/jpeg', 0.88); URL.revokeObjectURL(img.src); };
+    img.onerror = () => done(f); img.src = URL.createObjectURL(f);
+  });
+  function regPanel(tr, r, reload) {
+    const old = tr.nextElementSibling?.classList.contains('reg-row') ? tr.nextElementSibling : null;
+    if (old) return old.remove();
+    const d = r.regdata || {};
+    const cols = tr.children.length;
+    const row = document.createElement('tr'); row.className = 'reg-row'; row.dataset.lot = r.lot_id;
+    const f = (k, label, ph = '') => `<label class="hint">${label}<br><input name="${k}" value="${esc(d[k] ?? '')}" placeholder="${ph}" style="width:100%"></label>`;
+    row.innerHTML = `<td colspan="${cols}"><form class="reg-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;padding:8px 0">
+      <label class="hint" style="grid-column:1/-1">Фото или PDF техпаспорта (자동차등록증) — данные распознаются автоматически, их можно поправить
+        ${r.regdoc ? '<b> · загружен ✓</b>' : ''}<br><input type="file" name="file" accept="image/*,application/pdf"></label>
+      ${f('vin', 'VIN (차대번호)')}${f('length_mm', 'Длина, мм')}${f('width_mm', 'Ширина, мм')}${f('height_mm', 'Высота, мм')}
+      ${f('gross_kg', 'Полная масса, кг (총중량)')}${f('cc', 'Объём, см³')}
+      <label class="hint">Топливо<br><select name="fuel" style="width:100%">${['', ...FUELS].map(x => `<option ${x === (d.fuel || '') ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+      ${f('hs', 'HS-код', 'подберётся сам')}
+      <div style="grid-column:1/-1" class="hint">${d.cbm ? `CBM: <b>${(Math.round(d.cbm * 1000) / 1000).toFixed(3).replace('.', ',')}</b> · ` : ''}${d.hs ? `HS: <b>${esc(d.hs)}</b>${d.hs_check ? ' <span class="g-bad">⚠️ гибрид/электро — проверьте код</span>' : ''}` : ''}
+        <span class="reg-msg"></span></div>
+      <div style="grid-column:1/-1;display:flex;gap:8px"><button class="btn primary">Сохранить</button>
+        ${regOk(d) ? '<button type="button" class="btn" data-one>Сформировать инвойс на эту машину</button>' : ''}</div></form></td>`;
+    tr.after(row);
+    const form = row.querySelector('form'), msg = row.querySelector('.reg-msg');
+    const save = async payload => {
+      msg.textContent = payload.action === 'regdoc' ? ' Загружаю и распознаю…' : ' Сохраняю…';
+      try {
+        const x = await adminCall(payload, 'invoice');
+        r.regdata = x.regdata; r.regdoc = x.regdoc;
+        if (x.note) alert(x.note);
+        reload();
+      } catch (err) { msg.textContent = ' ⚠️ ' + err.message; }
+    };
+    form.file.onchange = async () => {
+      const file = form.file.files[0]; if (!file) return;
+      const b64 = await fileB64(file);
+      save({ action: 'regdoc', lot_id: r.lot_id, file: b64, mime: /^image\//.test(file.type) ? 'image/jpeg' : file.type });
+    };
+    form.onsubmit = e => {
+      e.preventDefault();
+      const data = Object.fromEntries(['vin', 'length_mm', 'width_mm', 'height_mm', 'gross_kg', 'cc', 'fuel', 'hs'].map(k => [k, form[k].value.trim()]));
+      data.hs_manual = !!data.hs && data.hs !== (d.hs || '') ? true : (d.hs_manual && !!data.hs);
+      if (!data.hs) delete data.hs;
+      save({ action: 'regdata', lot_id: r.lot_id, data });
+    };
+  }
+
   async function admResults(body) {
     const [{ data: res }, { data: profs }] = await Promise.all([
       sb.from('results').select('*').order('set_at', { ascending: false }),
@@ -699,10 +761,23 @@
     if (!(res || []).length) { body.innerHTML = '<div class="empty">Итогов пока нет.</div>'; return; }
     body.innerHTML = `<div class="adm-bar"><button class="btn primary" id="invBtn" disabled>Сформировать инвойс</button>
         <span class="hint" id="invHint">Отметьте машины одного покупателя — PDF и Excel придут вам в Telegram.</span></div>
-      <table class="adm-bids"><tr><th></th><th>Дата</th><th>Авто</th><th>Лот</th><th>Победитель</th><th>Ставка партнёра</th><th>Куплено по факту</th><th>Заметка</th></tr>
-      ${res.map(r => { const s = r.lot_snapshot || {}; return `<tr><td><input type="checkbox" class="inv-ck" data-lot="${esc(r.lot_id)}" data-buyer="${esc(r.winner_partner_id || 'label:' + (r.winner_label || ''))}"></td>
+      <table class="adm-bids"><tr><th></th><th>Дата</th><th>Авто</th><th>Лот</th><th>Победитель</th><th>Ставка партнёра</th><th>Куплено по факту</th><th>Заметка</th><th>Инвойс на машину</th></tr>
+      ${res.map(r => { const s = r.lot_snapshot || {}; return `<tr data-lot="${esc(r.lot_id)}"><td><input type="checkbox" class="inv-ck" data-lot="${esc(r.lot_id)}" data-buyer="${esc(r.winner_partner_id || 'label:' + (r.winner_label || ''))}"></td>
         <td>${dateStr(r.set_at)}</td><td>${esc(titleOf(s))} ${esc(s.year || '')}</td><td>${esc(s.lotNo || '—')}</td>
-        <td>${esc(who(r))}</td><td>${r.bid_usd != null ? usd(r.bid_usd) : '—'}</td><td><b>${usd(r.price_usd)}</b></td><td>${esc(r.note || '')}</td></tr>`; }).join('')}</table>`;
+        <td>${esc(who(r))}</td><td>${r.bid_usd != null ? usd(r.bid_usd) : '—'}</td><td><b>${usd(r.price_usd)}</b></td><td>${esc(r.note || '')}</td>
+        <td><button class="link" data-reg>${regOk(r.regdata) ? '✅ техпаспорт' : '📄 техпаспорт'}</button>${regOk(r.regdata) ? ` · <button class="link" data-one>инвойс</button>` : ''}</td></tr>`; }).join('')}</table>`;
+    const RES = Object.fromEntries(res.map(r => [r.lot_id, r]));
+    body.onclick = async e => {
+      const tr = e.target.closest('tr[data-lot]'); if (!tr) return;
+      const r = RES[tr.dataset.lot];
+      if (e.target.closest('[data-reg]')) return regPanel(tr, r, () => admResults(body));
+      if (e.target.closest('[data-one]')) {
+        hint.textContent = 'Формирую инвойс на машину…';
+        try { const x = await adminCall({ action: 'single', lot_id: r.lot_id }, 'invoice'); hint.textContent = `✅ Инвойс ${x.number} на ${usd(x.total)} отправлен вам в Telegram.`; }
+        catch (err) { hint.textContent = '⚠️ ' + err.message; }
+        hint.scrollIntoView({ block: 'nearest' });
+      }
+    };
     const btn = $('#invBtn'), hint = $('#invHint');
     const picked = () => [...body.querySelectorAll('.inv-ck:checked')];
     body.onchange = e => {
