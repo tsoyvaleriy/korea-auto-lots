@@ -38,7 +38,7 @@ window.startCatalog = function (DATA, P) {
   }
 
   // ------------------------------------------------------------ состояние
-  const DEF = { tab: 'whole', q: '', src: [], make: '', model: '', yFrom: '', yTo: '', pFrom: '', pTo: '', km: 200000, fuel: [], tm: [], sheet: false, noRepl: false, hasPrice: false, active: true, sort: 'ends', origin: '', makes: [], models: [], hd: [] };
+  const DEF = { tab: 'whole', q: '', src: [], make: '', model: '', yFrom: '', yTo: '', pFrom: '', pTo: '', km: 200000, fuel: [], tm: [], sheet: false, noRepl: false, hasPrice: false, active: false, sort: 'ends', origin: '', makes: [], models: [], hd: [] };
   // подбор из Telegram-бота: корейские / импортные, несколько марок и моделей
   const KR_MAKES = ['Hyundai', 'Kia', 'Genesis', 'KGM', 'Renault', 'Chevrolet'];
   let state = { ...DEF, ...readHash() };
@@ -226,8 +226,9 @@ window.startCatalog = function (DATA, P) {
     const ph = l.photos?.[0];
     const tags = [...(l.condition || [])].slice(0, 4).map(t => `<span class="tag">${esc(t)}</span>`);
     if (l.category === 'whole' && hasSheet(l) && !replaced(l)) tags.unshift('<span class="tag ok">без замен</span>');
-    return `<div class="card" data-id="${esc(l.id)}">
-      <div class="thumb">
+    const over = ended(l) && !l.negotiable;
+    return `<div class="card${over ? ' is-over' : ''}" data-id="${esc(l.id)}">
+      <div class="thumb">${over ? '<div class="over-ribbon">ТОРГИ ОКОНЧЕНЫ</div>' : ''}
         ${ph ? `<img src="${esc(ph)}" loading="lazy" referrerpolicy="no-referrer" alt="" onerror="this.remove()">` : ''}<div class="noimg" style="z-index:-1">нет фото</div>
         <div class="badges"><span class="badge">${srcsOf(l).map(s => esc(DATA.sources[s]?.name || s)).join(' + ')}</span>
           ${l.aucGrade ? `<span class="badge grade">${esc(l.aucGrade)}</span>` : ''}${hasSheet(l) ? '<span class="badge sheet">лист осмотра</span>' : ''}
@@ -294,7 +295,7 @@ window.startCatalog = function (DATA, P) {
     $('#grid').className = 'grid';
     buildFilters();
     activeChips();
-    const list = filtered().sort(SORTS[state.sort]);
+    const list = filtered().sort((a, b) => (ended(a) - ended(b)) || SORTS[state.sort](a, b));   // оконченные торги — в конце
     $('#count').textContent = `${fmt(list.length)} лотов`;
     if ($('#fApply')) $('#fApply').textContent = list.length ? `Показать ${fmt(list.length)} лотов` : 'Ничего не найдено';
     $('#grid').innerHTML = list.slice(0, shown).map(card).join('');
@@ -488,6 +489,7 @@ window.startCatalog = function (DATA, P) {
           <span id="zipBox"></span>
         </div>
         <div class="m-info">
+          ${ended(l) && !l.negotiable ? `<div class="over-banner">⛔ ТОРГИ ОКОНЧЕНЫ · ${kstStr(l, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}<small>лот виден ещё сутки после торгов — можно скачать фото</small></div>` : ''}
           <h2 class="m-title">${esc(title(l))}</h2>
           <div class="m-sub">${esc(l.grade || '')}</div>
           <div class="tags">${(l.condition || []).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
