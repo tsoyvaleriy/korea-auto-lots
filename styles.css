@@ -473,9 +473,9 @@ body:has(#who) .tabs .in-cab { display: none; }
 
 /* продажи модели (매입 시세, цены продаж): компактный список — числа не переносятся, на телефоне в одну строку */
 .mk-list { margin: 8px 0; font-size: 14px; }
-.mk-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 4px 14px; align-items: center;
+.mk-row { display: grid; grid-template-columns: minmax(0, 1fr) 84px 118px 62px; gap: 4px 14px; align-items: center;
   padding: 8px 2px; border-bottom: 1px solid var(--line); }
-.mk-row.mk-3 { grid-template-columns: 1fr auto auto; }
+.mk-row.mk-3 { grid-template-columns: minmax(0, 1fr) 140px 70px; }
 .mk-head { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding-top: 0; }
 .mk-head span:not(:first-child) { text-align: right; }
 .mk-n { white-space: nowrap; text-align: right; }
@@ -484,5 +484,7 @@ body:has(#who) .tabs .in-cab { display: none; }
 .mk-car small { display: block; color: var(--muted); font-size: 12px; white-space: normal; overflow-wrap: anywhere; }
 @media (max-width: 560px) {
   .mk-list { font-size: 13px; }
-  .mk-row { gap: 2px 10px; }
+  .mk-row { grid-template-columns: minmax(0, 1fr) 64px 78px 46px; gap: 2px 8px; }
+  .mk-row.mk-3 { grid-template-columns: minmax(0, 1fr) 110px 54px; }
+  .mk-head { font-size: 10px; }
 }
