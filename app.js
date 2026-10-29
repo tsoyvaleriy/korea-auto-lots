@@ -498,6 +498,7 @@ window.startCatalog = function (DATA, P) {
           <dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
           <div id="marketBox"></div>
           ${l.alsoOn?.length ? `<p class="hint" style="margin-top:12px">Этот же автомобиль на других аукционах: ${l.alsoOn.map(a => `<b>${esc(DATA.sources[a.source]?.name || a.source)}</b>${a.lotNo ? ' (лот ' + esc(a.lotNo) + ')' : ''}`).join(', ')}</p>` : ''}
+          <div id="assignBox"></div>
           <div id="bidBox"></div>
           <div id="calcBox"></div>
         </div>
@@ -513,6 +514,7 @@ window.startCatalog = function (DATA, P) {
     $('#modal').hidden = false;
     document.body.style.overflow = 'hidden';
     P.bidPanel?.($('#bidBox'), l);
+    P.assignPanel?.($('#assignBox'), l);
     P.calcPanel?.($('#calcBox'), l);
     P.zipButtons?.($('#zipBox'), l);
     P.extLinks?.($('#marketBox'), l);

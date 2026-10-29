@@ -340,6 +340,47 @@
   const timer = endsAt => endsAt ? `<span class="timer" data-ends="${ts(endsAt)}">${left(ts(endsAt) - Date.now())}</span>` : '<span class="timer">—</span>';
 
   // ------------------------------------------------------------ ставка в карточке лота
+  // админ: торги окончены — присвоить лот партнёру по цене выигрыша (запись в «Итоги» + сообщение партнёру)
+  async function assignPanel(el, lot) {
+    if (!el || !OWNER()) return;
+    const endMs = ts(lot.endsAt);
+    if (!endMs || lot.negotiable || endMs > Date.now()) { el.innerHTML = ''; return; }
+    const [{ data: res }, { data: profs }] = await Promise.all([
+      sb.from('results').select('*').eq('lot_id', lot.id).maybeSingle(),
+      sb.from('profiles').select('id,display_name,role,is_active').order('display_name'),
+    ]);
+    const P_ = Object.fromEntries((profs || []).map(p => [p.id, p.display_name]));
+    const draw = () => {
+      if (res) {
+        el.innerHTML = `<div class="assign-box"><b>Итог по лоту</b><div>${esc(res.winner_partner_id ? (P_[res.winner_partner_id] || 'партнёр') : (res.winner_label || 'сторонний покупатель'))}
+          · <b>${usd(res.price_usd)}</b>${res.note ? ' · ' + esc(res.note) : ''}</div>
+          <button class="link" data-reassign>изменить</button></div>`;
+        el.querySelector('[data-reassign]').onclick = async () => {
+          if (!confirm('Удалить итог и назначить заново?')) return;
+          await adminCall({ action: 'clear_result', lot_id: lot.id }); assignPanel(el, lot);
+        };
+        return;
+      }
+      const opts = (profs || []).filter(p => p.role === 'partner' && p.is_active).map(p => `<option value="${esc(p.id)}">${esc(p.display_name)}</option>`).join('');
+      el.innerHTML = `<form class="assign-box"><b>Торги окончены — присвоить лот партнёру</b>
+        <select name="winner" required><option value="">— выберите партнёра —</option>${opts}</select>
+        <input name="price" type="number" min="1" placeholder="цена выигрыша, $" required>
+        <input name="note" placeholder="заметка (придёт партнёру)">
+        <button class="btn primary">Присвоить лот</button></form>`;
+      const f = el.querySelector('form');
+      f.onsubmit = async e => {
+        e.preventDefault();
+        const btn = f.querySelector('button'); btn.disabled = true;
+        try {
+          await adminCall({ action: 'set_result', lot_id: lot.id, winner_partner_id: f.winner.value, price_usd: +f.price.value, note: f.note.value || null });
+          toast(`Лот присвоен: ${P_[f.winner.value]} · ${usd(+f.price.value)}`);
+          assignPanel(el, lot);
+        } catch (err) { alert(err.message); btn.disabled = false; }
+      };
+    };
+    draw();
+  }
+
   function bidPanel(el, lot) {
     if (!el) return;
     const mine = MY[lot.id];
@@ -1116,7 +1157,7 @@
     },
     myBid: id => MY[id] && (!MY[id].outcome || MY[id].outcome === 'pending') ? MY[id].amount_usd : null,
     activeBidsCount: () => Object.values(MY).filter(b => b.outcome === 'pending' && !(ts(b.ends_at) < Date.now())).length,
-    bidPanel, renderBids, renderAdmin, salesPanel, saveSearch, favToggle, favNote,
+    bidPanel, assignPanel, renderBids, renderAdmin, salesPanel, saveSearch, favToggle, favNote,
     afterModal: el => hideKrw(el),
     fx: fxLine,
     calcPanel, zipButtons, extLinks,
