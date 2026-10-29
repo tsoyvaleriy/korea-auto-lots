@@ -154,6 +154,8 @@
   // ------------------------------------------------------------ статистика продаж
   // HeyDealer: прошлые выставления этой машины и 매입 시세 (продажи той же модели) — цены в $ по текущему курсу
   const HD_ACC = { none: ['без ДТП', 'g-good'], simple: ['простая замена', 'g-mid'], acc: ['было ДТП', 'g-bad'], unk: ['—', ''] };
+  const kmS = km => Math.round(km).toLocaleString('ru-RU') + ' км';
+  const dShort = (d, approx) => d ? (approx ? '≈' : '') + new Date(d + 'T12:00:00').toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : '—';
   const dRu = (d, approx) => d ? (approx ? '≈ ' : '') + new Date(d + 'T12:00:00').toLocaleDateString('ru-RU') : '—';
   function hdHtml(lot) {
     if (lot.source !== 'heydealer') return '';
@@ -161,19 +163,18 @@
     const hist = lot.hdHist || [];
     if (hist.length) h += `<h3>Эту машину уже выставляли</h3>
       <div class="vin-hist">⚠️ Владелец выставлял автомобиль на HeyDealer ${hist.length} ${hist.length === 1 || hist.length > 4 ? 'раз' : 'раза'} до этого — лучшие предложения дилеров:</div>
-      <table class="adm-bids"><tr><th>Дата торгов</th><th>Лучшее предложение</th><th>Ставок</th></tr>
-        ${hist.map(x => `<tr><td>${dRu(x.date)}</td><td><b>${usd(x.krw / RATE)}</b></td><td>${x.bids || '—'}</td></tr>`).join('')}</table>`;
+      <div class="mk-list"><div class="mk-row mk-3 mk-head"><span>Дата торгов</span><span>Лучшее предложение</span><span>Ставок</span></div>
+        ${hist.map(x => `<div class="mk-row mk-3"><span class="mk-n">${dRu(x.date)}</span><b class="mk-n">${usd(x.krw / RATE)}</b><span class="mk-n">${x.bids || '—'}</span></div>`).join('')}</div>`;
     const mk = lot.hdMarket || [];
     if (lot.hdMarket) {
       const pr = mk.map(x => x.krw / RATE).sort((a, b) => a - b);
       h += `<h3>매입 시세 — продажи этой модели на HeyDealer</h3>` + (mk.length ? `
         <div class="stats sales-stats"><div><b>${usd(pr[Math.floor(pr.length / 2)])}</b><span>медиана · ${mk.length} продаж</span></div>
           <div><b>${usd(pr[0])} – ${usd(pr[pr.length - 1])}</b><span>разброс</span></div></div>
-        <table class="adm-bids"><tr><th>Модель</th><th>Год</th><th>Пробег</th><th>Цена</th><th>ДТП</th><th>Дата продажи</th></tr>
-        ${mk.map(x => `<tr><td>${esc(titleOf(lot))}${x.grade ? ` <span class="hint">${esc(x.grade)}</span>` : ''}</td><td>${x.year || '—'}</td>
-          <td>${x.km ? Math.round(x.km).toLocaleString('ru-RU') + ' км' : '—'}</td><td><b>${usd(x.krw / RATE)}</b></td>
-          <td class="${HD_ACC[x.acc]?.[1] || ''}">${HD_ACC[x.acc]?.[0] || '—'}</td><td>${dRu(x.date, x.approx)}</td></tr>`).join('')}
-        </table><p class="hint">Лучшая ставка дилеров на завершённых торгах HeyDealer, ${lot.year ? `${lot.year - 1}–${lot.year + 1} г.` : 'все годы'}; пробег округлён HeyDealer, «≈» — дата примерная.</p>`
+        <div class="mk-list"><div class="mk-row mk-head"><span>Год · пробег · комплектация</span><span>Цена</span><span>ДТП</span><span>Продана</span></div>
+        ${mk.map(x => `<div class="mk-row"><div class="mk-car"><b>${x.year || '—'}</b> · ${x.km ? kmS(x.km) : '—'}${x.grade ? `<small>${esc(x.grade)}</small>` : ''}</div>
+          <b class="mk-n">${usd(x.krw / RATE)}</b><span class="mk-acc ${HD_ACC[x.acc]?.[1] || ''}">${HD_ACC[x.acc]?.[0] || '—'}</span><span class="mk-n">${dShort(x.date, x.approx)}</span></div>`).join('')}
+        </div><p class="hint">Лучшая ставка дилеров на завершённых торгах HeyDealer, ${lot.year ? `${lot.year - 1}–${lot.year + 1} г.` : 'все годы'}; пробег округлён HeyDealer, «≈» — дата примерная.</p>`
         : `<p class="hint">Продаж этой модели${lot.year ? ` ${lot.year - 1}–${lot.year + 1} г.` : ''} на HeyDealer за последнее время нет.</p>`);
     }
     return h;
@@ -200,10 +201,10 @@
       (list.length ? `<div class="stats sales-stats">
           <div><b>${usd(med)}</b><span>медиана · ${list.length} продаж</span></div>
           <div><b>${usd(prices[0])} – ${usd(prices[prices.length - 1])}</b><span>разброс</span></div></div>
-        <table class="adm-bids"><tr><th>Дата</th><th>Год</th><th>Пробег</th><th>Оценка</th><th>Цена</th></tr>
-          ${list.slice(0, 8).map(x => `<tr><td>${x.sold_at ? new Date(x.sold_at).toLocaleDateString('ru-RU') : '—'}</td><td>${x.year || '—'}</td>
-            <td>${x.mileage ? Math.round(x.mileage).toLocaleString('ru-RU') + ' км' : '—'}</td><td>${esc(x.grade || '—')}</td><td><b>${usd(x.price_usd)}</b></td></tr>`).join('')}
-        </table><p class="hint">Похожие: ${esc(titleOf(lot))}${y ? `, ${y - 1}–${y + 1} г.` : ''} · цены торгов Autohub и итоги наших сделок</p>` : '');
+        <div class="mk-list"><div class="mk-row mk-head"><span>Год · пробег</span><span>Цена</span><span>Оценка</span><span>Продана</span></div>
+          ${list.slice(0, 8).map(x => `<div class="mk-row"><div class="mk-car"><b>${x.year || '—'}</b> · ${x.mileage ? kmS(x.mileage) : '—'}</div>
+            <b class="mk-n">${usd(x.price_usd)}</b><span class="mk-n">${esc(x.grade || '—')}</span><span class="mk-n">${x.sold_at ? dShort(String(x.sold_at).slice(0, 10)) : '—'}</span></div>`).join('')}
+        </div><p class="hint">Похожие: ${esc(titleOf(lot))}${y ? `, ${y - 1}–${y + 1} г.` : ''} · цены торгов Autohub и итоги наших сделок</p>` : '');
   }
 
   // ------------------------------------------------------------ Telegram и поиски в кабинете

@@ -470,3 +470,19 @@ body:has(#who) .tabs .in-cab { display: none; }
 /* админ: присвоить лот партнёру после окончания торгов */
 .assign-box { display: grid; gap: 8px; margin: 12px 0; padding: 12px 14px; border: 2px solid #c81e1e; border-radius: 10px; }
 .assign-box select, .assign-box input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: inherit; }
+
+/* продажи модели (매입 시세, цены продаж): компактный список — числа не переносятся, на телефоне в одну строку */
+.mk-list { margin: 8px 0; font-size: 14px; }
+.mk-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 4px 14px; align-items: center;
+  padding: 8px 2px; border-bottom: 1px solid var(--line); }
+.mk-row.mk-3 { grid-template-columns: 1fr auto auto; }
+.mk-head { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding-top: 0; }
+.mk-head span:not(:first-child) { text-align: right; }
+.mk-n { white-space: nowrap; text-align: right; }
+.mk-car { min-width: 0; }
+.mk-acc { text-align: right; max-width: 92px; line-height: 1.2; }
+.mk-car small { display: block; color: var(--muted); font-size: 12px; white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+  .mk-list { font-size: 13px; }
+  .mk-row { gap: 2px 10px; }
+}
