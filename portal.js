@@ -809,11 +809,11 @@
     if (!(res || []).length) { body.innerHTML = '<div class="empty">Итогов пока нет.</div>'; return; }
     body.innerHTML = `<div class="adm-bar"><button class="btn primary" id="invBtn" disabled>Сформировать инвойс</button>
         <span class="hint" id="invHint">Отметьте машины одного покупателя — PDF и Excel придут вам в Telegram.</span></div>
-      <table class="adm-bids"><tr><th></th><th>Дата</th><th>Авто</th><th>Лот</th><th>VIN</th><th>Победитель</th><th>Ставка партнёра</th><th>Куплено по факту</th><th>Заметка</th><th>Инвойс на машину</th></tr>
+      <table class="adm-bids"><tr><th></th><th>Дата</th><th>Авто</th><th>Лот</th><th>VIN</th><th>Победитель</th><th>Ставка партнёра</th><th>Куплено по факту</th><th>Комиссия · сервис · фрахт</th><th>Итого партнёру</th><th>Заметка</th><th>Инвойс на машину</th></tr>
       ${res.map(r => { const s = r.lot_snapshot || {}; return `<tr data-lot="${esc(r.lot_id)}"><td><input type="checkbox" class="inv-ck" data-lot="${esc(r.lot_id)}" data-buyer="${esc(r.winner_partner_id || 'label:' + (r.winner_label || ''))}"></td>
         <td>${dateStr(r.set_at)}</td><td>${esc(titleOf(s))} ${esc(s.year || '')}</td><td>${esc(s.lotNo || '—')}</td>
         <td style="font-family:ui-monospace,monospace;font-size:12px;white-space:nowrap">${esc((r.regdata && r.regdata.vin) || s.vin || '—')}</td>
-        <td>${esc(who(r))}</td><td>${r.bid_usd != null ? usd(r.bid_usd) : '—'}</td><td><b>${usd(r.price_usd)}</b></td><td>${esc(r.note || '')}</td>
+        <td>${esc(who(r))}</td><td>${r.bid_usd != null ? usd(r.bid_usd) : '—'}</td><td><b>${usd(r.price_usd)}</b></td><td style="font-size:12px;white-space:nowrap">${r.total_usd != null ? `${+r.commission_pct || 0}% ${usd(r.commission_usd)}<br>сервис ${usd(r.service_usd)}<br>фрахт ${usd(r.freight_usd)}` : '—'}</td><td><b>${r.total_usd != null ? usd(r.total_usd) : '—'}</b></td><td>${esc(r.note || '')}</td>
         <td><button class="link" data-reg>${regOk(r.regdata) ? '✅ техпаспорт' : '📄 техпаспорт'}</button>${regOk(r.regdata) ? ` · <button class="link" data-one>инвойс</button>` : ''}</td></tr>`; }).join('')}</table>`;
     const RES = Object.fromEntries(res.map(r => [r.lot_id, r]));
     body.onclick = async e => {
