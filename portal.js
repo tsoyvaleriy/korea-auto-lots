@@ -974,7 +974,7 @@
             btn.disabled = false; btn.textContent = label; return;
           }
           if (!r.ok || j.error) throw new Error(j.error || 'ошибка ' + r.status);
-          toast(`Архив «${j.name}» отправлен в Telegram (${j.photos} фото)`);
+          toast(j.queued ? `Архив готовится — придёт в Telegram через минуту (${j.photos} фото)` : `Архив «${j.name}» отправлен в Telegram (${j.photos} фото)`);
         } else {
           const blob = await r.blob();
           const a = document.createElement('a');
