@@ -800,7 +800,7 @@
         ${inp('desc', 'Описание (FULL DESCRIPTION)', { wide: true })}
         ${inp('cbm', 'CBM')}${inp('weight', 'Вес, кг')}${inp('fuel', 'Топливо')}${inp('cc', 'Объём, cc')}${inp('engine', 'ENGINE, CC (как в инвойсе)')}${inp('hs', 'HS-код')}</div>
       <h3>Суммы</h3><div class="doc-grid">
-        ${inp('rate', 'Курс, ₩ за $')}${inp('price_krw', 'Цена машины, ₩')}${inp('freight_krw', 'Фрахт, ₩')}${inp('service_krw', 'Сервис, ₩')}
+        ${inp('rate', 'Курс, ₩ за $')}${inp('price_krw', 'Цена машины, ₩')}${kg ? '' : inp('svc_total_krw', 'Сервис вместе с фрахтом, ₩', { ph: '1 300 000' })}${inp('freight_krw', kg ? 'Фрахт, ₩' : 'Фрахт, ₩ (авто 800 000)')}${inp('service_krw', kg ? 'Сервис, ₩' : 'Сервис, ₩ (авто: остаток)')}
         ${inp('price_usd', 'Цена машины, $')}${inp('freight_usd', 'Фрахт, $')}${inp('service_usd', 'Сервис, $')}
         <label>Итого (инвойс и ДКП), $<input id="docTotal" disabled></label></div>
       <h3>Покупатель (паспорт РФ)</h3><div class="doc-grid">
@@ -821,12 +821,18 @@
     };
     const fromKrw = k => {
       const r = +f.rate || 0, w = +String(f[k + '_krw'] || '').replace(/\D/g, '');
-      if (r && w) { f[k + '_usd'] = Math.round(w / r); form[k + '_usd'].value = f[k + '_usd']; }
+      if (r && f[k + '_krw'] !== undefined) { f[k + '_usd'] = w ? Math.round(w / r) : 0; form[k + '_usd'].value = f[k + '_usd'] || ''; }
     };
     form.oninput = e => {
       const k = e.target.name; if (!k) return;
       f[k] = e.target.value;
-      if (/_krw$/.test(k)) fromKrw(k.replace('_krw', ''));
+      // РФ напрямую: вписывается одна сумма «сервис с фрахтом» — фрахт всегда 800 000 ₩, остальное сервис (0 → оба 0)
+      if (k === 'svc_total_krw') {
+        const t = +String(f.svc_total_krw || '').replace(/\D/g, '') || 0;
+        f.freight_krw = t ? Math.min(800000, t) : 0; f.service_krw = Math.max(0, t - f.freight_krw);
+        form.freight_krw.value = f.freight_krw || ''; form.service_krw.value = f.service_krw || '';
+        ['freight', 'service'].forEach(x => { if (!t) { f[x + '_usd'] = 0; form[x + '_usd'].value = ''; } else fromKrw(x); });
+      } else if (/_krw$/.test(k)) fromKrw(k.replace('_krw', ''));
       if (k === 'rate') ['price', 'freight', 'service'].forEach(fromKrw);
       if (k === 'ru_name') { f.lat_name = lat(f.ru_name); form.lat_name.value = f.lat_name; }
       if (k === 'addr_ru') { f.addr_lat = lat(f.addr_ru); form.addr_lat.value = f.addr_lat; }
