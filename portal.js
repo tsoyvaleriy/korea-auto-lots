@@ -871,10 +871,12 @@
     };
     form.oninput = e => {
       const k = e.target.name; if (!k) return;
-      if (MONEY.has(k)) {                                    // суммы — с пробелами по разрядам, курсор остаётся на месте
+      // суммы — с пробелами по разрядам; дата производства — ГГГГ-ММ-ДД (дефисы сами); курсор остаётся на месте
+      const ymdMask = v => { const d = String(v).replace(/\D/g, '').slice(0, 8); return [d.slice(0, 4), d.slice(4, 6), d.slice(6, 8)].filter(Boolean).join('-'); };
+      if (MONEY.has(k) || k === 'mfg_date') {
         const el = e.target, pos = el.selectionStart ?? el.value.length;
         const digitsBefore = el.value.slice(0, pos).replace(/\D/g, '').length;
-        el.value = grp(el.value);
+        el.value = k === 'mfg_date' ? ymdMask(el.value) : grp(el.value);
         let p = 0, seen = 0;
         while (p < el.value.length && seen < digitsBefore) { if (/\d/.test(el.value[p])) seen++; p++; }
         el.setSelectionRange(p, p);
