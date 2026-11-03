@@ -512,12 +512,14 @@
       <div class="adm-tabs">
         <button data-adm="bids" class="${ADM_TAB === 'bids' ? 'on' : ''}">Ставки по лотам</button>
         <button data-adm="partners" class="${ADM_TAB === 'partners' ? 'on' : ''}">Партнёры</button>
-        <button data-adm="results" class="${ADM_TAB === 'results' ? 'on' : ''}">Итоги</button></div><div id="admBody"><div class="empty">Загружаю…</div></div>`;
+        <button data-adm="results" class="${ADM_TAB === 'results' ? 'on' : ''}">Итоги</button>${OWNER() ? `
+        <button data-adm="docs" class="${ADM_TAB === 'docs' ? 'on' : ''}">Документы</button>` : ''}</div><div id="admBody"><div class="empty">Загружаю…</div></div>`;
     box.querySelector('.adm-tabs').onclick = e => { const b = e.target.closest('[data-adm]'); if (b) { ADM_TAB = b.dataset.adm; renderAdmin(box, count); } };
     const body = $('#admBody');
     try {
       if (ADM_TAB === 'partners') await admPartners(body);
       else if (ADM_TAB === 'results') await admResults(body);
+      else if (ADM_TAB === 'docs') admDocs(body);
       else await admBids(body);
     } catch (e) { body.innerHTML = `<div class="empty">Ошибка: ${esc(e.message)}</div>`; }
     tick();
@@ -749,6 +751,142 @@
     if (m < 6) return '<span class="g-good">● сейчас на сайте</span>';
     const txt = m < 60 ? `${m} мин назад` : m < 1440 ? `${Math.round(m / 60)} ч назад` : new Date(t).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     return txt;
+  }
+
+
+  // ------------------------------------------------------------ документы (машины не с сайта): инвойс + ДКП от ИП / ЛТД
+  // Сценарии: «РФ напрямую» — ИП на россиянина; «через Бишкек» — ЛТД формально на россиянина + инвойс для таможни на киргиза.
+  // Всё распознаётся с фото и подставляется в поля; любое поле можно исправить перед формированием.
+  const TRL = { а: 'A', б: 'B', в: 'V', г: 'G', д: 'D', е: 'E', ё: 'E', ж: 'ZH', з: 'Z', и: 'I', й: 'Y', к: 'K', л: 'L', м: 'M', н: 'N', о: 'O', п: 'P', р: 'R',
+    с: 'S', т: 'T', у: 'U', ф: 'F', х: 'KH', ц: 'TS', ч: 'CH', ш: 'SH', щ: 'SHCH', ъ: '', ы: 'Y', ь: '', э: 'E', ю: 'YU', я: 'YA' };
+  const lat = t => String(t || '').toLowerCase().replace(/[а-яё]/g, c => TRL[c] ?? c).toUpperCase().replace(/\bROSSIYA\b/, 'RUSSIA');
+  const cap = w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : '';
+  let DOC = null;                                            // черновик формы — только в памяти страницы (паспортные данные не сохраняем)
+  const docDefaults = sc => ({
+    scenario: sc, date: new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10), rate: Math.round(RATE),
+    dkp_terms: 'CFR', dkp_place: 'DONGHAE', dkp_days: 180, dkp_city: 'г. Кимпхо, Республика Корея', dkp_freight_city: 'г. Владивосток',
+    port: 'DONGHAE, KOREA', dest: 'VLADIVOSTOK, RUSSIA', ship: 'RO-RO', terms: 'Incoterms 2020 CFR DONGHAE',
+    kg_port: 'INCHEON, KOREA', kg_dest: 'BISHKEK, KYRGYZSTAN', kg_ship: 'CONTAINER', kg_terms: 'FOB INCHEON',
+  });
+  // № инвойса: дата + YAT (ИП) / YAT LTD (ЛТД) + последние 4 цифры госномера (если нет — VIN)
+  function docNumbers(f) {
+    const tail = (String(f.plate || '').match(/\d{4}$/) || [])[0] || String(f.vin || '').replace(/\W/g, '').slice(-4).toUpperCase() || '0000';
+    f.inv_no = `${String(f.date || '').replace(/-/g, '')}-YAT${f.scenario === 'ru' ? '' : ' LTD'}-${tail}`;
+    f.kg_inv_no = `${String(f.kg_date || f.date || '').replace(/-/g, '')}-YAT LTD-${tail}`;
+  }
+  const engineOf = f => !f.cc ? '' : f.scenario === 'ru' ? `${f.cc} cc${f.ps ? ` / ${f.ps} PS` : ''}` : (+f.cc).toLocaleString('en-US');
+  function admDocs(body) {
+    DOC ??= docDefaults('kg');
+    const f = DOC, kg = f.scenario === 'kg';
+    if (!f.inv_no) docNumbers(f);
+    const v = k => esc(f[k] ?? '');
+    const inp = (k, label, o = {}) => `<label class="${o.wide ? 'dw' : ''}">${label}<input name="${k}" value="${v(k)}"${o.type ? ` type="${o.type}"` : ''}${o.ph ? ` placeholder="${esc(o.ph)}"` : ''}></label>`;
+    const up = (kind, label, multi) => `<label class="doc-up">${label}<input type="file" data-read="${kind}" accept="image/*,application/pdf"${multi ? ' multiple' : ''}></label>`;
+    const kgBlock = !kg ? '' : `<h3>Инвойс для таможни (киргиз)</h3><div class="doc-grid">
+        ${inp('kg_name', 'ФИО латиницей + № документа', { wide: true })}
+        <label class="dw">Прописка (по-русски, как присылаете)<span class="doc-row"><input name="kg_addr_src" value="${v('kg_addr_src')}" placeholder="Чуйская область, г. Токмок, Вальцовая 31"><button type="button" class="btn" id="kgAddr">в латиницу</button></span></label>
+        ${inp('kg_addr', 'Адрес латиницей (инвойс)', { wide: true })}${inp('kg_usd', 'Сумма для таможни, $')}
+        ${inp('kg_date', 'Дата', { type: 'date' })}${inp('kg_inv_no', '№ инвойса')}${inp('kg_port', 'Порт погрузки')}${inp('kg_dest', 'Место доставки')}${inp('kg_ship', 'Тип отправления')}${inp('kg_terms', 'Условия поставки')}</div>`;
+    body.innerHTML = `<form class="doc-form" autocomplete="off">
+      <div class="res-filter">
+        <button type="button" class="chip ${kg ? '' : 'on'}" data-sc="ru">🇷🇺 РФ напрямую — ИП</button>
+        <button type="button" class="chip ${kg ? 'on' : ''}" data-sc="kg">🇰🇬 Через Бишкек — ЛТД</button></div>
+      <p class="hint">${kg ? 'Формальные инвойс и ДКП от ЛТД на россиянина (Владивосток) + инвойс для таможни от ЛТД на киргиза (FOB INCHEON, CONTAINER).' : 'Инвойс и ДКП от ИП на россиянина.'}
+        Все суммы — в долларах по курсу. Загрузите фото — поля заполнятся сами, любое поле можно исправить.</p>
+      <div class="doc-ups">${up('reg', '📄 Техпаспорт (자동차등록증)')}${up('pass_ru', '🇷🇺 Паспорт РФ: разворот с фото + прописка', true)}${kg ? up('id_kg', '🇰🇬 ID-карта киргиза (обе стороны)', true) : ''}</div>
+      <div class="hint" id="docMsg"></div>
+      <h3>Машина</h3><div class="doc-grid">
+        ${inp('vin', 'VIN')}${inp('plate', 'Госномер (для № инвойса)')}${inp('short', 'Модель для имени файла', { ph: 'GLC220D' })}
+        ${inp('desc', 'Описание (FULL DESCRIPTION)', { wide: true })}
+        ${inp('cbm', 'CBM')}${inp('weight', 'Вес, кг')}${inp('fuel', 'Топливо')}${inp('cc', 'Объём, cc')}${inp('engine', 'ENGINE, CC (как в инвойсе)')}${inp('hs', 'HS-код')}</div>
+      <h3>Суммы</h3><div class="doc-grid">
+        ${inp('rate', 'Курс, ₩ за $')}${inp('price_krw', 'Цена машины, ₩')}${inp('freight_krw', 'Фрахт, ₩')}${inp('service_krw', 'Сервис, ₩')}
+        ${inp('price_usd', 'Цена машины, $')}${inp('freight_usd', 'Фрахт, $')}${inp('service_usd', 'Сервис, $')}
+        <label>Итого (инвойс и ДКП), $<input id="docTotal" disabled></label></div>
+      <h3>Покупатель (паспорт РФ)</h3><div class="doc-grid">
+        ${inp('ru_name', 'ФИО по-русски (ДКП)')}${inp('lat_name', 'ФИО латиницей (инвойс)')}${inp('passport', 'Паспорт: серия и номер')}
+        ${inp('issued_by', 'Кем выдан', { wide: true })}${inp('issue_date', 'Дата выдачи')}${inp('code', 'Код подразделения')}
+        ${inp('addr_ru', 'Адрес по-русски (ДКП)', { wide: true })}${inp('addr_lat', 'Адрес латиницей (инвойс)', { wide: true })}</div>
+      <h3>Инвойс ${kg ? 'ЛТД (формальный, на россиянина)' : 'ИП'}</h3><div class="doc-grid">
+        ${inp('date', 'Дата', { type: 'date' })}${inp('inv_no', '№ инвойса')}${inp('port', 'Порт погрузки')}${inp('dest', 'Место доставки')}${inp('ship', 'Тип отправления')}${inp('terms', 'Условия поставки')}</div>
+      <h3>ДКП</h3><div class="doc-grid">
+        ${inp('dkp_city', 'Город договора')}${inp('dkp_date', 'Дата прописью', { ph: 'как у инвойса' })}${inp('dkp_terms', 'Условия (CFR)')}${inp('dkp_place', 'Порт для условий')}${inp('dkp_days', 'Срок поставки, дней')}${inp('dkp_freight_city', 'Фрахт до')}</div>
+      ${kgBlock}
+      <div class="adm-bar"><button class="btn primary" id="docMake">Сформировать документы</button><button type="button" class="btn" id="docReset">Очистить</button></div>
+      <p class="hint">Придут вам в Telegram: ${kg ? 'два инвойса' : 'инвойс'} (PDF + Excel) и ДКП (PDF + Word).</p></form>`;
+    const form = body.querySelector('form'), msg = $('#docMsg');
+    const total = () => {
+      const t = ['price_usd', 'freight_usd', 'service_usd'].reduce((a, k) => a + (+String(f[k] || 0).replace(/\s/g, '') || 0), 0);
+      $('#docTotal').value = t ? t.toLocaleString('ru-RU') : '';
+    };
+    const fromKrw = k => {
+      const r = +f.rate || 0, w = +String(f[k + '_krw'] || '').replace(/\D/g, '');
+      if (r && w) { f[k + '_usd'] = Math.round(w / r); form[k + '_usd'].value = f[k + '_usd']; }
+    };
+    form.oninput = e => {
+      const k = e.target.name; if (!k) return;
+      f[k] = e.target.value;
+      if (/_krw$/.test(k)) fromKrw(k.replace('_krw', ''));
+      if (k === 'rate') ['price', 'freight', 'service'].forEach(fromKrw);
+      if (k === 'ru_name') { f.lat_name = lat(f.ru_name); form.lat_name.value = f.lat_name; }
+      if (k === 'addr_ru') { f.addr_lat = lat(f.addr_ru); form.addr_lat.value = f.addr_lat; }
+      if (['date', 'plate', 'vin', 'kg_date'].includes(k)) { docNumbers(f); form.inv_no.value = f.inv_no; if (form.kg_inv_no) form.kg_inv_no.value = f.kg_inv_no; }
+      total();
+    };
+    total();
+    body.querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { f.scenario = b.dataset.sc; docNumbers(f); f.engine = engineOf(f); admDocs(body); });
+    $('#docReset').onclick = () => { if (confirm('Очистить все поля?')) { DOC = docDefaults(f.scenario); admDocs(body); } };
+    body.querySelectorAll('[data-read]').forEach(el => el.onchange = async () => {
+      const kind = el.dataset.read, list = [...el.files].slice(0, 4);
+      if (!list.length) return;
+      msg.textContent = 'Распознаю…';
+      try {
+        const files = await Promise.all(list.map(async x => ({ file: await fileB64(x), mime: x.type === 'application/pdf' ? 'application/pdf' : 'image/jpeg' })));
+        const r = await adminCall({ action: 'doc_read', kind, files }, 'invoice');
+        let note;
+        if (kind === 'reg') {
+          const g = r.reg, name = String(g.name || '').replace(/\s+/g, ' ').trim();
+          f.ps = parseInt(g.power, 10) || '';
+          Object.assign(f, {
+            vin: g.vin || '', plate: g.plate || '', weight: g.gross_kg || '', fuel: g.fuel || '', cc: g.cc || '', hs: g.hs || '',
+            cbm: g.cbm ? (Math.round(g.cbm * 1000) / 1000).toFixed(3).replace('.', ',') : '',
+            short: name.split(' ').slice(1, 2).join('').replace(/[^A-Za-z0-9]/g, '').toUpperCase() || name.split(' ')[0].toUpperCase(),
+            desc: `${name.toUpperCase()} ${g.fuel || ''} ${g.cc && !/ELECTRIC|HYDROGEN/.test(g.fuel) ? (Math.round(g.cc / 100) / 10).toFixed(1) : ''} VIN CODE: ${g.vin || ''}`.replace(/\s+/g, ' '),
+          });
+          f.engine = engineOf(f); docNumbers(f);
+          note = `✅ Техпаспорт: ${name}, ${g.vin}${g.hs_check ? ' · ⚠️ проверьте HS-код' : ''}`;
+        } else if (kind === 'pass_ru') {
+          const d = r.doc;
+          f.ru_name = [d.surname, d.name, d.patronymic].filter(Boolean).map(cap).join(' ');
+          Object.assign(f, { lat_name: lat(f.ru_name), passport: [d.series, d.number].filter(Boolean).join(' '), issued_by: d.issued_by || '',
+            issue_date: d.issue_date || '', code: d.code || '', addr_ru: d.address || '', addr_lat: lat(d.address || '') });
+          note = `✅ Паспорт: ${f.ru_name}${d.address ? '' : ' · ⚠️ прописка не найдена — загрузите страницу с пропиской'}`;
+        } else {
+          const d = r.doc;
+          f.kg_name = [d.surname_lat, d.name_lat, lat(d.patronymic_ru)].filter(Boolean).join(' ').toUpperCase()
+            + (d.doc_no ? ' ' + String(d.doc_no).replace(/^\D+/, '') : '');
+          note = `✅ ID-карта: ${f.kg_name}`;
+        }
+        admDocs(body); $('#docMsg').textContent = note;
+      } catch (e) { msg.textContent = '⚠️ ' + e.message; }
+    });
+    if ($('#kgAddr')) $('#kgAddr').onclick = async () => {
+      if (!f.kg_addr_src) return;
+      msg.textContent = 'Перевожу адрес…';
+      try {
+        const r = await adminCall({ action: 'doc_read', kind: 'addr', text: f.kg_addr_src }, 'invoice');
+        f.kg_addr = lat(r.address); form.kg_addr.value = f.kg_addr; msg.textContent = '✅ Адрес: ' + f.kg_addr;
+      } catch (e) { msg.textContent = '⚠️ ' + e.message; }
+    };
+    form.onsubmit = async e => {
+      e.preventDefault();
+      const btn = $('#docMake'); btn.disabled = true; msg.textContent = 'Формирую документы…'; msg.scrollIntoView({ block: 'nearest' });
+      try {
+        const r = await adminCall({ action: 'doc_make', scenario: f.scenario, f }, 'invoice');
+        msg.textContent = `✅ Готово: ${r.files} файлов отправлены вам в Telegram (итого ${usd(r.total)}).`;
+      } catch (err) { msg.textContent = '⚠️ ' + err.message; }
+      btn.disabled = false;
+    };
   }
 
   // ---- техпаспорт машины (для инвойса на одну машину)
