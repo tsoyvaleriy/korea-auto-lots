@@ -774,6 +774,13 @@
     f.inv_no = `${String(f.date || '').replace(/-/g, '')}-YAT${f.scenario === 'ru' ? '' : ' LTD'}-${tail}`;
     f.kg_inv_no = `${String(f.kg_date || f.date || '').replace(/-/g, '')}-YAT LTD-${tail}`;
   }
+  // описание как в инвойсах: «CHEVROLET TRAILBLAZER 1.35 TURBO FWD GASOLINE 1.3 (2023-05-12) VIN CODE: …»
+  const descBuild = f => {
+    const cc = +f.cc || 0, l = cc && !/ELECTRIC|HYDROGEN/.test(f.fuel || '') ? (Math.round(cc / 100) / 10).toFixed(1) : '';
+    const name = String(f.car_name || '').toUpperCase();
+    const fuel = f.fuel && !name.includes(String(f.fuel).toUpperCase()) ? f.fuel : '';
+    return [name, fuel, l, f.mfg_date ? `(${f.mfg_date})` : '', `VIN CODE: ${f.vin || ''}`].filter(Boolean).join(' ').replace(/\s+/g, ' ');
+  };
   const engineOf = f => !f.cc ? '' : f.scenario === 'ru' ? `${f.cc} cc${f.ps ? ` / ${f.ps} PS` : ''}` : (+f.cc).toLocaleString('en-US');
   function admDocs(body) {
     DOC ??= docDefaults('kg');
@@ -797,7 +804,8 @@
       <div class="hint" id="docMsg"></div>
       <h3>Машина</h3><div class="doc-grid">
         ${inp('vin', 'VIN')}${inp('plate', 'Госномер (для № инвойса)')}${inp('short', 'Модель для имени файла', { ph: 'GLC220D' })}
-        ${inp('desc', 'Описание (FULL DESCRIPTION)', { wide: true })}
+        ${inp('car_name', 'Марка и модель (EN)', { ph: 'CHEVROLET TRAILBLAZER 1.35 TURBO FWD' })}${inp('mfg_date', 'Дата производства', { ph: '2023-05-12' })}
+        ${inp('desc', 'Описание (FULL DESCRIPTION) — собирается само, можно править', { wide: true })}
         ${inp('cbm', 'CBM')}${inp('weight', 'Вес, кг')}${inp('fuel', 'Топливо')}${inp('cc', 'Объём, cc')}${inp('engine', 'ENGINE, CC (как в инвойсе)')}${inp('hs', 'HS-код')}</div>
       <h3>Суммы</h3><div class="doc-grid">
         ${inp('rate', 'Курс, ₩ за $')}${inp('price_krw', 'Цена машины, ₩')}${kg ? '' : inp('svc_total_krw', 'Сервис вместе с фрахтом, ₩', { ph: '1 300 000' })}${inp('freight_krw', kg ? 'Фрахт, ₩' : 'Фрахт, ₩ (авто 800 000)')}${inp('service_krw', kg ? 'Сервис, ₩' : 'Сервис, ₩ (авто: остаток)')}
@@ -836,6 +844,7 @@
       if (k === 'rate') ['price', 'freight', 'service'].forEach(fromKrw);
       if (k === 'ru_name') { f.lat_name = lat(f.ru_name); form.lat_name.value = f.lat_name; }
       if (k === 'addr_ru') { f.addr_lat = lat(f.addr_ru); form.addr_lat.value = f.addr_lat; }
+      if (['car_name', 'mfg_date', 'fuel', 'cc', 'vin'].includes(k)) { f.desc = descBuild(f); form.desc.value = f.desc; }
       if (['date', 'plate', 'vin', 'kg_date'].includes(k)) { docNumbers(f); form.inv_no.value = f.inv_no; if (form.kg_inv_no) form.kg_inv_no.value = f.kg_inv_no; }
       total();
     };
@@ -851,15 +860,15 @@
         const r = await adminCall({ action: 'doc_read', kind, files }, 'invoice');
         let note;
         if (kind === 'reg') {
-          const g = r.reg, name = String(g.name || '').replace(/\s+/g, ' ').trim();
+          const g = r.reg, name = String(g.name_en || g.name || '').replace(/\s+/g, ' ').trim().toUpperCase();
           f.ps = parseInt(g.power, 10) || '';
           Object.assign(f, {
             vin: g.vin || '', plate: g.plate || '', weight: g.gross_kg || '', fuel: g.fuel || '', cc: g.cc || '', hs: g.hs || '',
             cbm: g.cbm ? (Math.round(g.cbm * 1000) / 1000).toFixed(3).replace('.', ',') : '',
-            short: name.split(' ').slice(1, 2).join('').replace(/[^A-Za-z0-9]/g, '').toUpperCase() || name.split(' ')[0].toUpperCase(),
-            desc: `${name.toUpperCase()} ${g.fuel || ''} ${g.cc && !/ELECTRIC|HYDROGEN/.test(g.fuel) ? (Math.round(g.cc / 100) / 10).toFixed(1) : ''} VIN CODE: ${g.vin || ''}`.replace(/\s+/g, ' '),
+            car_name: name, mfg_date: '',
+            short: String(g.model_en || name.split(' ').slice(1, 2).join('')).replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 16) || 'CAR',
           });
-          f.engine = engineOf(f); docNumbers(f);
+          f.desc = descBuild(f); f.engine = engineOf(f); docNumbers(f);
           note = `✅ Техпаспорт: ${name}, ${g.vin}${g.hs_check ? ' · ⚠️ проверьте HS-код' : ''}`;
         } else if (kind === 'pass_ru') {
           const d = r.doc;
