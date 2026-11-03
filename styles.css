@@ -514,3 +514,14 @@ body:has(#who) .tabs .in-cab { display: none; }
 .doc-state.wait { background: rgba(31, 157, 85, .12); color: #1f9d55; }
 .doc-state.ok { background: #1f9d55; color: #fff; }
 .doc-state.err { background: rgba(200, 30, 30, .12); color: #c81e1e; }
+/* Документы: всегда на виду — блок «главное»; остальные разделы — свёртки с кратким итогом в заголовке */
+.doc-main { padding: 14px 16px 16px; margin: 6px 0 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.doc-main h3:first-of-type { margin-top: 14px; }
+.doc-sec { border: 1px solid var(--line); border-radius: 12px; margin: 8px 0; background: var(--surface); }
+.doc-sec > summary { display: flex; align-items: baseline; gap: 12px; padding: 12px 16px; cursor: pointer; list-style: none; }
+.doc-sec > summary::-webkit-details-marker { display: none; }
+.doc-sec > summary::before { content: '▸'; color: var(--muted); transition: transform .15s; }
+.doc-sec[open] > summary::before { transform: rotate(90deg); }
+.doc-sec > summary b { font-family: var(--display); font-size: 14px; white-space: nowrap; }
+.doc-sum { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.doc-sec > .doc-grid { padding: 0 16px 16px; }
