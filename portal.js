@@ -126,7 +126,7 @@
     if (entry) await sb.from('favorites').upsert({ partner_id: ME.id, lot_id: id, note: entry.note || null, lot_snapshot: entry.snap || null });
     else await sb.from('favorites').delete().eq('partner_id', ME.id).eq('lot_id', id);
     const srcs = entry?.snap?.srcs || [entry?.snap?.source];
-    if (entry && ME.id === AUTOBID_OWNER && srcs.some(s => s === 'happycar' || s === 'jenomotors')) {
+    if (entry && ME.id === AUTOBID_OWNER && ME.notify?.autobid !== false && srcs.some(s => s === 'happycar' || s === 'jenomotors')) {
       adminCall({ action: 'autobid_kick' })
         .then(() => toast('🤖 Автоставка 1 000 000 ₩ запущена — результат придёт в Telegram'))
         .catch(e => toast('Автоставка не запустилась: ' + e.message));
@@ -213,7 +213,12 @@
     Object.assign(ME, me || {});
     const n = ME.notify || {};
     const on = !!ME.telegram_chat_id;
-    return `<div class="panel tg-panel">
+    const autobid = ME.id === AUTOBID_OWNER ? `<div class="panel tg-panel">
+      <div class="panel-h"><b>🤖 Автоставки на битках</b>
+        <span class="pill ${n.autobid !== false ? 'won">включены' : 'wait">выключены'}</span></div>
+      <label class="check"><input type="checkbox" data-notify="autobid" ${n.autobid !== false ? 'checked' : ''}> ставить 1 000 000 ₩ на HappyCar и Jenomotors, когда я лайкаю лот</label>
+      <p class="hint">Выключено — лайки работают как обычное избранное, ставки не ставятся.</p></div>` : '';
+    return autobid + `<div class="panel tg-panel">
       <div class="panel-h"><b>Уведомления в Telegram</b>
         ${on ? `<span class="pill won">подключено${ME.tg_username ? ' · @' + esc(ME.tg_username) : ''}</span>` : '<span class="pill wait">не подключено</span>'}</div>
       ${on ? `<div class="toggles">
@@ -255,6 +260,7 @@
     box.querySelectorAll('[data-notify]').forEach(cb => cb.onchange = async () => {
       const n = { bid: true, reminder: true, result: true, searches: true, ...(ME.notify || {}) }; n[cb.dataset.notify] = cb.checked;
       await sb.rpc('set_my_notify', { n }); ME.notify = n;
+      if (cb.dataset.notify === 'autobid') { const pill = cb.closest('.panel').querySelector('.pill'); pill.className = 'pill ' + (cb.checked ? 'won' : 'wait'); pill.textContent = cb.checked ? 'включены' : 'выключены'; toast(cb.checked ? 'Автоставки включены' : 'Автоставки выключены'); }
     });
     box.querySelectorAll('[data-ssn]').forEach(cb => cb.onchange = () => sb.from('saved_searches').update({ notify: cb.checked }).eq('id', cb.dataset.ssn));
     box.querySelectorAll('[data-ssdel]').forEach(b => b.onclick = async e => {
