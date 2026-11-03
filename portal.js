@@ -840,7 +840,7 @@
         ${inp('kg_date', 'Дата', { type: 'date' })}${inp('kg_inv_no', '№ инвойса')}${inp('kg_port', 'Порт погрузки')}${inp('kg_dest', 'Место доставки')}${inp('kg_ship', 'Тип отправления')}${inp('kg_terms', 'Условия поставки')}`) : ''}
       <div class="adm-bar doc-actions"><button class="btn primary" id="docMake">Сформировать документы</button><button type="button" class="btn" id="docReset">Очистить</button>
         <span class="doc-state" id="docState" hidden></span></div>
-      <p class="hint">Придут вам в Telegram: ${kg ? 'два инвойса' : 'инвойс'} (PDF + Excel) и ДКП (PDF + Word).</p></form>`;
+      <p class="hint">${kg ? 'Придут в Telegram двумя комплектами: 👤 «для клиента» — инвойс (PDF + Excel) и ДКП (PDF + Word); 🛃 «для таможни» — инвойс (PDF + Excel).' : 'Придут вам в Telegram: инвойс (PDF + Excel) и ДКП (PDF + Word).'}</p></form>`;
     body.querySelectorAll('details.doc-sec').forEach(d => d.ontoggle = () => { d.open ? DOC_OPEN.add(d.dataset.sec) : DOC_OPEN.delete(d.dataset.sec); });
     const refreshSums = () => body.querySelectorAll('[data-sum]').forEach(s => { s.textContent = docSum[s.dataset.sum](f); });
     const form = body.querySelector('form'), msg = $('#docMsg');
