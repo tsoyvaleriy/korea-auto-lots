@@ -527,3 +527,13 @@ body:has(#who) .tabs .in-cab { display: none; }
 .doc-sec > .doc-grid { padding: 0 16px 16px; }
 .doc-firm { align-items: center; margin-top: 8px; }
 .doc-firm > .hint { padding: 0 6px 0 10px; }
+/* Документы: окошки загрузки — видно, что файл принят */
+.doc-up { transition: background .2s, border-color .2s; }
+.doc-up-st { font-size: 12px; font-weight: 600; min-height: 0; }
+.doc-up-st:empty { display: none; }
+.doc-up.busy { border-style: solid; border-color: #d9a400; background: rgba(217, 164, 0, .1); }
+.doc-up.busy .doc-up-st { color: #b38700; }
+.doc-up.done { border-style: solid; border-color: #1f9d55; background: rgba(31, 157, 85, .14); }
+.doc-up.done .doc-up-st { color: #1f9d55; }
+.doc-up.err { border-style: solid; border-color: #c81e1e; background: rgba(200, 30, 30, .1); }
+.doc-up.err .doc-up-st { color: #c81e1e; }

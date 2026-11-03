@@ -762,6 +762,7 @@
   const lat = t => String(t || '').toLowerCase().replace(/[а-яё]/g, c => TRL[c] ?? c).toUpperCase().replace(/\bROSSIYA\b/, 'RUSSIA');
   const cap = w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : '';
   let DOC = null;                                            // черновик формы — только в памяти страницы (паспортные данные не сохраняем)
+  let DOC_UP = {};                                           // состояние окошек загрузки: kind → { st: busy|done|err, text }
   const DOC_OPEN = new Set();                                // какие свёртки раскрыты (на время открытой страницы)
   // краткий итог раздела — в заголовке свёртка, чтобы не раскрывать без надобности
   const docSum = {
@@ -803,7 +804,8 @@
     if (!f.inv_no) docNumbers(f);
     const v = k => esc(MONEY.has(k) ? grp(f[k]) : (f[k] ?? ''));
     const inp = (k, label, o = {}) => `<label class="${o.wide ? 'dw' : ''}">${label}<input name="${k}" value="${v(k)}"${o.type ? ` type="${o.type}"` : ''}${o.ph ? ` placeholder="${esc(o.ph)}"` : ''}></label>`;
-    const up = (kind, label, multi) => `<label class="doc-up">${label}<input type="file" data-read="${kind}" accept="image/*,application/pdf"${multi ? ' multiple' : ''}></label>`;
+    const up = (kind, label, multi) => { const u = DOC_UP[kind] || {};
+      return `<label class="doc-up ${u.st || ''}" data-up="${kind}">${label}<span class="doc-up-st">${esc(u.text || '')}</span><input type="file" data-read="${kind}" accept="image/*,application/pdf"${multi ? ' multiple' : ''}></label>`; };
     // раскладка: всегда на виду — дата производства, суммы и адрес киргиза; остальное — каждый раздел в своём свёртке
     const sec = (id, title, sum, inner) => `<details class="doc-sec" data-sec="${id}"${DOC_OPEN.has(id) ? ' open' : ''}>
         <summary><b>${title}</b><span class="doc-sum" data-sum="${id}">${esc(sum)}</span></summary><div class="doc-grid">${inner}</div></details>`;
@@ -891,11 +893,13 @@
     total(); svcShow();
     body.querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { f.scenario = b.dataset.sc; f.firm = f.scenario === 'ru' ? 'ip' : 'ltd'; docNumbers(f); f.engine = engineOf(f); admDocs(body); });
     body.querySelectorAll('[data-firm]').forEach(b => b.onclick = () => { f.firm = b.dataset.firm; docNumbers(f); f.engine = engineOf(f); admDocs(body); });
-    $('#docReset').onclick = () => { if (confirm('Очистить все поля?')) { DOC = docDefaults(f.scenario); admDocs(body); } };
+    $('#docReset').onclick = () => { if (confirm('Очистить все поля?')) { DOC = docDefaults(f.scenario); DOC_UP = {}; admDocs(body); } };
     body.querySelectorAll('[data-read]').forEach(el => el.onchange = async () => {
       const kind = el.dataset.read, list = [...el.files].slice(0, 4);
       if (!list.length) return;
       msg.textContent = 'Распознаю…';
+      const box = el.closest('.doc-up'), mark = (st, text) => { DOC_UP[kind] = { st, text }; box.className = 'doc-up ' + st; box.querySelector('.doc-up-st').textContent = text; };
+      mark('busy', '⏳ Распознаю…');
       try {
         const files = await Promise.all(list.map(async x => ({ file: await fileB64(x), mime: x.type === 'application/pdf' ? 'application/pdf' : 'image/jpeg' })));
         const r = await adminCall({ action: 'doc_read', kind, files }, 'invoice');
@@ -924,8 +928,9 @@
           if (d.address) { f.kg_addr_src = d.address; if (d.address_fmt) f.kg_addr = lat(d.address_fmt); }   // электронная карта — адрес уже есть
           note = `✅ ID-карта: ${f.kg_name}${d.address ? (d.address_fmt ? ' · адрес взят с карты' : ' · адрес найден — нажмите «в латиницу»') : ' · впишите прописку'}`;
         }
+        DOC_UP[kind] = { st: 'done', text: `✅ Принято: ${list.length} ${list.length === 1 ? 'файл' : list.length < 5 ? 'файла' : 'файлов'}` };
         admDocs(body); $('#docMsg').textContent = note;
-      } catch (e) { msg.textContent = '⚠️ ' + e.message; }
+      } catch (e) { mark('err', '⚠️ Не распознано — загрузите ещё раз'); msg.textContent = '⚠️ ' + e.message; }
     });
     if ($('#kgAddr')) $('#kgAddr').onclick = async () => {
       if (!f.kg_addr_src) return;
