@@ -909,7 +909,9 @@
       const btn = $('#docMake'); btn.disabled = true; msg.textContent = 'Формирую документы…'; msg.scrollIntoView({ block: 'nearest' });
       try {
         const r = await adminCall({ action: 'doc_make', scenario: f.scenario, f }, 'invoice');
-        msg.textContent = `✅ Готово: ${r.files} файлов отправлены вам в Telegram (итого ${usd(r.total)}).`;
+        msg.textContent = r.queued
+          ? `✅ Документы собраны (${r.files} файлов, итого ${usd(r.total)}) — придут в Telegram в течение минуты.`
+          : `✅ Готово: ${r.files} файлов отправлены вам в Telegram (итого ${usd(r.total)}).`;
       } catch (err) { msg.textContent = '⚠️ ' + err.message; }
       btn.disabled = false;
     };
