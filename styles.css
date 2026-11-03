@@ -507,3 +507,10 @@ body:has(#who) .tabs .in-cab { display: none; }
 .doc-ups { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
 .doc-up { padding: 12px 14px; border: 1px dashed var(--line-2); border-radius: 10px; background: var(--surface); cursor: pointer; }
 .doc-up input { font-size: 12px; }
+/* Документы: кнопка «Сформировать» зеленеет, рядом — плашка статуса */
+.btn.doc-go, .btn.doc-go:disabled { background: #1f9d55; border-color: #1f9d55; color: #fff; opacity: 1; }
+.doc-actions { justify-content: flex-start; }
+.doc-state { padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 500; }
+.doc-state.wait { background: rgba(31, 157, 85, .12); color: #1f9d55; }
+.doc-state.ok { background: #1f9d55; color: #fff; }
+.doc-state.err { background: rgba(200, 30, 30, .12); color: #c81e1e; }

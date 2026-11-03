@@ -823,7 +823,8 @@
       <h3>ДКП</h3><div class="doc-grid">
         ${inp('dkp_city', 'Город договора')}${inp('dkp_date', 'Дата прописью', { ph: 'как у инвойса' })}${inp('dkp_terms', 'Условия (CFR)')}${inp('dkp_place', 'Порт для условий')}${inp('dkp_days', 'Срок поставки, дней')}${inp('dkp_freight_city', 'Фрахт до')}</div>
       ${kgBlock}
-      <div class="adm-bar"><button class="btn primary" id="docMake">Сформировать документы</button><button type="button" class="btn" id="docReset">Очистить</button></div>
+      <div class="adm-bar doc-actions"><button class="btn primary" id="docMake">Сформировать документы</button><button type="button" class="btn" id="docReset">Очистить</button>
+        <span class="doc-state" id="docState" hidden></span></div>
       <p class="hint">Придут вам в Telegram: ${kg ? 'два инвойса' : 'инвойс'} (PDF + Excel) и ДКП (PDF + Word).</p></form>`;
     const form = body.querySelector('form'), msg = $('#docMsg');
     const total = () => {
@@ -906,14 +907,21 @@
     };
     form.onsubmit = async e => {
       e.preventDefault();
-      const btn = $('#docMake'); btn.disabled = true; msg.textContent = 'Формирую документы…'; msg.scrollIntoView({ block: 'nearest' });
+      // статус — у самой кнопки, без прокрутки страницы: кнопка зеленеет, рядом плашка
+      const btn = $('#docMake'), st = $('#docState');
+      const state = (cls, text) => { st.hidden = false; st.className = 'doc-state ' + cls; st.textContent = text; };
+      btn.disabled = true; btn.classList.add('doc-go'); btn.textContent = '⏳ Формирую…';
+      state('wait', 'Документы формируются и будут отправлены в Telegram');
+      toast('Документы формируются и будут отправлены в Telegram');
       try {
         const r = await adminCall({ action: 'doc_make', scenario: f.scenario, f }, 'invoice');
-        msg.textContent = r.queued
-          ? `✅ Документы собраны (${r.files} файлов, итого ${usd(r.total)}) — придут в Telegram в течение минуты.`
-          : `✅ Готово: ${r.files} файлов отправлены вам в Telegram (итого ${usd(r.total)}).`;
-      } catch (err) { msg.textContent = '⚠️ ' + err.message; }
-      btn.disabled = false;
+        btn.textContent = '✓ Отправляются в Telegram';
+        state('ok', `✅ Собрано ${r.files} файлов (итого ${usd(r.total)}) — придут в Telegram в течение минуты`);
+      } catch (err) {
+        btn.classList.remove('doc-go');
+        state('err', '⚠️ ' + err.message);
+      }
+      setTimeout(() => { btn.disabled = false; btn.classList.remove('doc-go'); btn.textContent = 'Сформировать документы'; }, 4000);
     };
   }
 
