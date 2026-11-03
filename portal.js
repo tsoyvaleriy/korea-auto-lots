@@ -779,7 +779,7 @@
   });
   // № инвойса: дата + YAT (ИП) / YAT LTD (ЛТД) + последние 4 цифры госномера (если нет — VIN)
   function docNumbers(f) {
-    const tail = (String(f.plate || '').match(/\d{4}$/) || [])[0] || String(f.vin || '').replace(/\W/g, '').slice(-4).toUpperCase() || '0000';
+    const tail = String(f.vin || '').replace(/\W/g, '').slice(-4).toUpperCase() || '0000';   // последние 4 знака VIN
     const yat = (f.firm || (f.scenario === 'ru' ? 'ip' : 'ltd')) === 'ip' ? 'YAT' : 'YAT LTD';   // ИП — YAT, ЛТД — YAT LTD
     f.inv_no = `${String(f.date || '').replace(/-/g, '')}-${yat}-${tail}`;
     f.kg_inv_no = `${String(f.kg_date || f.date || '').replace(/-/g, '')}-${yat}-${tail}`;
@@ -822,8 +822,8 @@
       <div class="doc-main">
         <div class="doc-grid">${inp('mfg_date', 'Дата производства', { ph: '2023-05-12' })}</div>
         <h3>Суммы</h3><div class="doc-grid">${only ? inp('kg_usd', 'Сумма инвойса, $') : `
-          ${inp('rate', 'Курс, ₩ за $')}${inp('price_krw', 'Цена машины, ₩')}${kg ? '' : inp('svc_total_krw', 'Сервис вместе с фрахтом, ₩', { ph: '1 300 000' })}${inp('freight_krw', kg ? 'Фрахт, ₩' : 'Фрахт, ₩ (авто 800 000)')}${inp('service_krw', kg ? 'Сервис, ₩' : 'Сервис, ₩ (авто: остаток)')}
-          ${inp('price_usd', 'Цена машины, $')}${inp('freight_usd', 'Фрахт, $')}${inp('service_usd', 'Сервис, $')}
+          ${inp('rate', 'Курс, ₩ за $')}${inp('price_krw', 'Цена машины, ₩')}${inp('svc_total_krw', 'Сервис, ₩ (вместе с фрахтом 800 000)', { ph: '1 300 000' })}
+          ${inp('price_usd', 'Цена машины, $')}<label>В инвойсе: фрахт + сервис, $<input id="docSvc" disabled></label>
           <label>Итого (инвойс и ДКП), $<input id="docTotal" disabled></label>${kg ? inp('kg_usd', 'Сумма для таможни, $') : ''}`}</div>
         ${kgl ? `<h3>Адрес киргиза</h3><div class="doc-grid">
           <label class="dw">Прописка (по-русски, как присылаете)<span class="doc-row"><input name="kg_addr_src" value="${v('kg_addr_src')}" placeholder="Чуйская область, г. Токмок, Вальцовая 31"><button type="button" class="btn" id="kgAddr">в латиницу</button></span></label>
@@ -855,9 +855,17 @@
       const t = ['price_usd', 'freight_usd', 'service_usd'].reduce((a, k) => a + (+String(f[k] || 0).replace(/\s/g, '') || 0), 0);
       if ($('#docTotal')) $('#docTotal').value = t ? t.toLocaleString('ru-RU') : '';
     };
+    const svcShow = () => { const el = $('#docSvc'); if (el) el.value = (+f.freight_usd || +f.service_usd) ? `${grp(f.freight_usd) || 0} + ${grp(f.service_usd) || 0}` : ''; };
+    const splitSvc = () => {
+      const t = +String(f.svc_total_krw || '').replace(/\D/g, '') || 0;
+      f.freight_krw = t ? Math.min(800000, t) : 0; f.service_krw = Math.max(0, t - f.freight_krw);
+      ['freight', 'service'].forEach(x => { if (!t) f[x + '_usd'] = 0; else fromKrw(x); });
+      svcShow();
+    };
     const fromKrw = k => {
       const r = +f.rate || 0, w = +String(f[k + '_krw'] || '').replace(/\D/g, '');
-      if (r && f[k + '_krw'] !== undefined) { f[k + '_usd'] = w ? Math.round(w / r) : 0; form[k + '_usd'].value = grp(f[k + '_usd']); }
+      if (r && f[k + '_krw'] !== undefined) { f[k + '_usd'] = w ? Math.round(w / r) : 0; if (form[k + '_usd']) form[k + '_usd'].value = grp(f[k + '_usd']); }
+      svcShow();
     };
     form.oninput = e => {
       const k = e.target.name; if (!k) return;
@@ -870,21 +878,17 @@
         el.setSelectionRange(p, p);
       }
       f[k] = e.target.value;
-      // РФ напрямую: вписывается одна сумма «сервис с фрахтом» — фрахт всегда 800 000 ₩, остальное сервис (0 → оба 0)
-      if (k === 'svc_total_krw') {
-        const t = +String(f.svc_total_krw || '').replace(/\D/g, '') || 0;
-        f.freight_krw = t ? Math.min(800000, t) : 0; f.service_krw = Math.max(0, t - f.freight_krw);
-        form.freight_krw.value = grp(f.freight_krw); form.service_krw.value = grp(f.service_krw);
-        ['freight', 'service'].forEach(x => { if (!t) { f[x + '_usd'] = 0; form[x + '_usd'].value = ''; } else fromKrw(x); });
-      } else if (/_krw$/.test(k)) fromKrw(k.replace('_krw', ''));
-      if (k === 'rate') ['price', 'freight', 'service'].forEach(fromKrw);
+      // вписывается одна сумма «сервис» — из неё фрахт всегда 800 000 ₩ (строка FREIGHT FEE), остальное — SERVICE (0 → оба 0)
+      if (k === 'svc_total_krw') splitSvc();
+      else if (/_krw$/.test(k)) fromKrw(k.replace('_krw', ''));
+      if (k === 'rate') { fromKrw('price'); splitSvc(); }
       if (k === 'ru_name') { f.lat_name = lat(f.ru_name); form.lat_name.value = f.lat_name; }
       if (k === 'addr_ru') { f.addr_lat = lat(f.addr_ru); form.addr_lat.value = f.addr_lat; }
       if (['car_name', 'mfg_date', 'fuel', 'cc', 'vin'].includes(k)) { f.desc = descBuild(f); form.desc.value = f.desc; }
       if (['date', 'plate', 'vin', 'kg_date'].includes(k)) { docNumbers(f); if (form.inv_no) form.inv_no.value = f.inv_no; if (form.kg_inv_no) form.kg_inv_no.value = f.kg_inv_no; }
       total(); refreshSums();
     };
-    total();
+    total(); svcShow();
     body.querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { f.scenario = b.dataset.sc; f.firm = f.scenario === 'ru' ? 'ip' : 'ltd'; docNumbers(f); f.engine = engineOf(f); admDocs(body); });
     body.querySelectorAll('[data-firm]').forEach(b => b.onclick = () => { f.firm = b.dataset.firm; docNumbers(f); f.engine = engineOf(f); admDocs(body); });
     $('#docReset').onclick = () => { if (confirm('Очистить все поля?')) { DOC = docDefaults(f.scenario); admDocs(body); } };
