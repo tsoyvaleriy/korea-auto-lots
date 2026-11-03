@@ -525,3 +525,5 @@ body:has(#who) .tabs .in-cab { display: none; }
 .doc-sec > summary b { font-family: var(--display); font-size: 14px; white-space: nowrap; }
 .doc-sum { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .doc-sec > .doc-grid { padding: 0 16px 16px; }
+.doc-firm { align-items: center; margin-top: 8px; }
+.doc-firm > .hint { padding: 0 6px 0 10px; }

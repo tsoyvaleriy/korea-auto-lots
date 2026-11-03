@@ -772,7 +772,7 @@
     kg: f => [f.kg_name, f.kg_inv_no, f.kg_terms].filter(Boolean).join(' · ') || 'загрузите ID-карту',
   };
   const docDefaults = sc => ({
-    scenario: sc, date: new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10), rate: Math.round(RATE),
+    scenario: sc, firm: sc === 'ru' ? 'ip' : 'ltd', date: new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10), rate: Math.round(RATE),
     dkp_terms: 'CFR', dkp_place: 'DONGHAE', dkp_days: 180, dkp_city: 'г. Кимпхо, Республика Корея', dkp_freight_city: 'г. Владивосток',
     port: 'DONGHAE, KOREA', dest: 'VLADIVOSTOK, RUSSIA', ship: 'RO-RO', terms: 'Incoterms 2020 CFR DONGHAE',
     kg_port: 'INCHEON, KOREA', kg_dest: 'BISHKEK, KYRGYZSTAN', kg_ship: 'CONTAINER', kg_terms: 'FOB INCHEON',
@@ -780,8 +780,9 @@
   // № инвойса: дата + YAT (ИП) / YAT LTD (ЛТД) + последние 4 цифры госномера (если нет — VIN)
   function docNumbers(f) {
     const tail = (String(f.plate || '').match(/\d{4}$/) || [])[0] || String(f.vin || '').replace(/\W/g, '').slice(-4).toUpperCase() || '0000';
-    f.inv_no = `${String(f.date || '').replace(/-/g, '')}-YAT${f.scenario === 'ru' ? '' : ' LTD'}-${tail}`;
-    f.kg_inv_no = `${String(f.kg_date || f.date || '').replace(/-/g, '')}-YAT LTD-${tail}`;
+    const yat = (f.firm || (f.scenario === 'ru' ? 'ip' : 'ltd')) === 'ip' ? 'YAT' : 'YAT LTD';   // ИП — YAT, ЛТД — YAT LTD
+    f.inv_no = `${String(f.date || '').replace(/-/g, '')}-${yat}-${tail}`;
+    f.kg_inv_no = `${String(f.kg_date || f.date || '').replace(/-/g, '')}-${yat}-${tail}`;
   }
   // суммы в форме — с пробелами по разрядам (23 500 000); на сервер уходят как есть, там берутся только цифры
   const MONEY = new Set(['price_krw', 'svc_total_krw', 'freight_krw', 'service_krw', 'price_usd', 'freight_usd', 'service_usd', 'kg_usd']);
@@ -793,10 +794,12 @@
     const fuel = f.fuel && !name.includes(String(f.fuel).toUpperCase()) ? f.fuel : '';
     return [name, fuel, l, f.mfg_date ? `(${f.mfg_date})` : '', `VIN CODE: ${f.vin || ''}`].filter(Boolean).join(' ').replace(/\s+/g, ' ');
   };
-  const engineOf = f => !f.cc ? '' : f.scenario === 'ru' ? `${f.cc} cc${f.ps ? ` / ${f.ps} PS` : ''}` : (+f.cc).toLocaleString('en-US');
+  const engineOf = f => !f.cc ? '' : (f.firm || (f.scenario === 'ru' ? 'ip' : 'ltd')) === 'ip' ? `${f.cc} cc${f.ps ? ` / ${f.ps} PS` : ''}` : (+f.cc).toLocaleString('en-US');
   function admDocs(body) {
     DOC ??= docDefaults('kg');
     const f = DOC, kg = f.scenario === 'kg', only = f.scenario === 'kgonly', kgl = kg || only;   // kgonly — только инвойс на киргиза
+    f.firm ??= f.scenario === 'ru' ? 'ip' : 'ltd';
+    const firmName = f.firm === 'ip' ? 'ИП' : 'ЛТД';
     if (!f.inv_no) docNumbers(f);
     const v = k => esc(MONEY.has(k) ? grp(f[k]) : (f[k] ?? ''));
     const inp = (k, label, o = {}) => `<label class="${o.wide ? 'dw' : ''}">${label}<input name="${k}" value="${v(k)}"${o.type ? ` type="${o.type}"` : ''}${o.ph ? ` placeholder="${esc(o.ph)}"` : ''}></label>`;
@@ -806,10 +809,13 @@
         <summary><b>${title}</b><span class="doc-sum" data-sum="${id}">${esc(sum)}</span></summary><div class="doc-grid">${inner}</div></details>`;
     body.innerHTML = `<form class="doc-form" autocomplete="off">
       <div class="res-filter">
-        <button type="button" class="chip ${kg ? '' : 'on'}" data-sc="ru">🇷🇺 РФ напрямую — ИП</button>
-        <button type="button" class="chip ${kg ? 'on' : ''}" data-sc="kg">🇰🇬 Через Бишкек — ЛТД</button>
+        <button type="button" class="chip ${kg ? '' : 'on'}" data-sc="ru">🇷🇺 РФ напрямую</button>
+        <button type="button" class="chip ${kg ? 'on' : ''}" data-sc="kg">🇰🇬 Через Бишкек</button>
         <button type="button" class="chip ${only ? 'on' : ''}" data-sc="kgonly">🇰🇬 Только Бишкек</button></div>
-      <p class="hint">${kg ? 'Формальные инвойс и ДКП от ЛТД на россиянина (Владивосток) + инвойс для таможни от ЛТД на киргиза (FOB INCHEON, CONTAINER).' : only ? 'Только инвойс от ЛТД на киргиза (INCHEON → BISHKEK, CONTAINER, FOB INCHEON) — без россиянина и ДКП.' : 'Инвойс и ДКП от ИП на россиянина.'}
+      <div class="res-filter doc-firm"><span class="hint">Компания:</span>
+        <button type="button" class="chip ${f.firm === 'ip' ? 'on' : ''}" data-firm="ip">ИП — YARAKIRI TRADE</button>
+        <button type="button" class="chip ${f.firm === 'ltd' ? 'on' : ''}" data-firm="ltd">ЛТД — YARAKIRI TRADE Ltd Co.</button></div>
+      <p class="hint">${kg ? `Формальные инвойс и ДКП от ${firmName} на россиянина (Владивосток) + инвойс для таможни от ${firmName} на киргиза (FOB INCHEON, CONTAINER).` : only ? `Только инвойс от ${firmName} на киргиза (INCHEON → BISHKEK, CONTAINER, FOB INCHEON) — без россиянина и ДКП.` : `Инвойс и ДКП от ${firmName} на россиянина.`}
         Все суммы — в долларах по курсу. Загрузите фото — поля заполнятся сами; разделы раскрываются по клику, если нужно что-то поправить.</p>
       <div class="doc-ups">${up('reg', '📄 Техпаспорт (자동차등록증)')}${only ? '' : up('pass_ru', '🇷🇺 Паспорт РФ: разворот с фото + прописка', true)}${kgl ? up('id_kg', '🇰🇬 ID-карта киргиза', true) : ''}</div>
       <div class="hint" id="docMsg"></div>
@@ -832,7 +838,7 @@
         ${inp('ru_name', 'ФИО по-русски (ДКП)')}${inp('lat_name', 'ФИО латиницей (инвойс)')}${inp('passport', 'Паспорт: серия и номер')}
         ${inp('issued_by', 'Кем выдан', { wide: true })}${inp('issue_date', 'Дата выдачи')}${inp('code', 'Код подразделения')}
         ${inp('addr_ru', 'Адрес по-русски (ДКП)', { wide: true })}${inp('addr_lat', 'Адрес латиницей (инвойс)', { wide: true })}`)}
-      ${only ? '' : sec('inv', `Инвойс ${kg ? 'ЛТД (формальный)' : 'ИП'}`, docSum.inv(f), `
+      ${only ? '' : sec('inv', `Инвойс ${firmName}${kg ? ' (формальный)' : ''}`, docSum.inv(f), `
         ${inp('date', 'Дата', { type: 'date' })}${inp('inv_no', '№ инвойса')}${inp('port', 'Порт погрузки')}${inp('dest', 'Место доставки')}${inp('ship', 'Тип отправления')}${inp('terms', 'Условия поставки')}`)}
       ${only ? '' : sec('dkp', 'ДКП', docSum.dkp(f), `
         ${inp('dkp_city', 'Город договора')}${inp('dkp_date', 'Дата прописью', { ph: 'как у инвойса' })}${inp('dkp_terms', 'Условия (CFR)')}${inp('dkp_place', 'Порт для условий')}${inp('dkp_days', 'Срок поставки, дней')}${inp('dkp_freight_city', 'Фрахт до')}`)}
@@ -879,7 +885,8 @@
       total(); refreshSums();
     };
     total();
-    body.querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { f.scenario = b.dataset.sc; docNumbers(f); f.engine = engineOf(f); admDocs(body); });
+    body.querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { f.scenario = b.dataset.sc; f.firm = f.scenario === 'ru' ? 'ip' : 'ltd'; docNumbers(f); f.engine = engineOf(f); admDocs(body); });
+    body.querySelectorAll('[data-firm]').forEach(b => b.onclick = () => { f.firm = b.dataset.firm; docNumbers(f); f.engine = engineOf(f); admDocs(body); });
     $('#docReset').onclick = () => { if (confirm('Очистить все поля?')) { DOC = docDefaults(f.scenario); admDocs(body); } };
     body.querySelectorAll('[data-read]').forEach(el => el.onchange = async () => {
       const kind = el.dataset.read, list = [...el.files].slice(0, 4);
