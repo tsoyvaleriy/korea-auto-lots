@@ -774,6 +774,9 @@
     f.inv_no = `${String(f.date || '').replace(/-/g, '')}-YAT${f.scenario === 'ru' ? '' : ' LTD'}-${tail}`;
     f.kg_inv_no = `${String(f.kg_date || f.date || '').replace(/-/g, '')}-YAT LTD-${tail}`;
   }
+  // суммы в форме — с пробелами по разрядам (23 500 000); на сервер уходят как есть, там берутся только цифры
+  const MONEY = new Set(['price_krw', 'svc_total_krw', 'freight_krw', 'service_krw', 'price_usd', 'freight_usd', 'service_usd', 'kg_usd']);
+  const grp = x => { const d = String(x ?? '').replace(/\D/g, '').replace(/^0+(?=\d)/, ''); return d && d !== '0' ? d.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') : ''; };
   // описание как в инвойсах: «CHEVROLET TRAILBLAZER 1.35 TURBO FWD GASOLINE 1.3 (2023-05-12) VIN CODE: …»
   const descBuild = f => {
     const cc = +f.cc || 0, l = cc && !/ELECTRIC|HYDROGEN/.test(f.fuel || '') ? (Math.round(cc / 100) / 10).toFixed(1) : '';
@@ -786,7 +789,7 @@
     DOC ??= docDefaults('kg');
     const f = DOC, kg = f.scenario === 'kg';
     if (!f.inv_no) docNumbers(f);
-    const v = k => esc(f[k] ?? '');
+    const v = k => esc(MONEY.has(k) ? grp(f[k]) : (f[k] ?? ''));
     const inp = (k, label, o = {}) => `<label class="${o.wide ? 'dw' : ''}">${label}<input name="${k}" value="${v(k)}"${o.type ? ` type="${o.type}"` : ''}${o.ph ? ` placeholder="${esc(o.ph)}"` : ''}></label>`;
     const up = (kind, label, multi) => `<label class="doc-up">${label}<input type="file" data-read="${kind}" accept="image/*,application/pdf"${multi ? ' multiple' : ''}></label>`;
     const kgBlock = !kg ? '' : `<h3>Инвойс для таможни (киргиз)</h3><div class="doc-grid">
@@ -829,16 +832,24 @@
     };
     const fromKrw = k => {
       const r = +f.rate || 0, w = +String(f[k + '_krw'] || '').replace(/\D/g, '');
-      if (r && f[k + '_krw'] !== undefined) { f[k + '_usd'] = w ? Math.round(w / r) : 0; form[k + '_usd'].value = f[k + '_usd'] || ''; }
+      if (r && f[k + '_krw'] !== undefined) { f[k + '_usd'] = w ? Math.round(w / r) : 0; form[k + '_usd'].value = grp(f[k + '_usd']); }
     };
     form.oninput = e => {
       const k = e.target.name; if (!k) return;
+      if (MONEY.has(k)) {                                    // суммы — с пробелами по разрядам, курсор остаётся на месте
+        const el = e.target, pos = el.selectionStart ?? el.value.length;
+        const digitsBefore = el.value.slice(0, pos).replace(/\D/g, '').length;
+        el.value = grp(el.value);
+        let p = 0, seen = 0;
+        while (p < el.value.length && seen < digitsBefore) { if (/\d/.test(el.value[p])) seen++; p++; }
+        el.setSelectionRange(p, p);
+      }
       f[k] = e.target.value;
       // РФ напрямую: вписывается одна сумма «сервис с фрахтом» — фрахт всегда 800 000 ₩, остальное сервис (0 → оба 0)
       if (k === 'svc_total_krw') {
         const t = +String(f.svc_total_krw || '').replace(/\D/g, '') || 0;
         f.freight_krw = t ? Math.min(800000, t) : 0; f.service_krw = Math.max(0, t - f.freight_krw);
-        form.freight_krw.value = f.freight_krw || ''; form.service_krw.value = f.service_krw || '';
+        form.freight_krw.value = grp(f.freight_krw); form.service_krw.value = grp(f.service_krw);
         ['freight', 'service'].forEach(x => { if (!t) { f[x + '_usd'] = 0; form[x + '_usd'].value = ''; } else fromKrw(x); });
       } else if (/_krw$/.test(k)) fromKrw(k.replace('_krw', ''));
       if (k === 'rate') ['price', 'freight', 'service'].forEach(fromKrw);
