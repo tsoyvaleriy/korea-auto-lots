@@ -277,6 +277,7 @@ window.startCatalog = function (DATA, P) {
   function render() {
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === state.tab));
     $('#filters').style.visibility = ['wish', 'bids', 'admin'].includes(state.tab) ? 'hidden' : '';
+    document.querySelector('.layout').classList.toggle('no-filters', ['wish', 'bids', 'admin'].includes(state.tab));   // кабинет и админка — во всю ширину
     $('#sort').style.display = ['wish', 'bids', 'admin'].includes(state.tab) ? 'none' : '';
     $('#openFilters').style.display = ['wish', 'bids', 'admin'].includes(state.tab) ? 'none' : '';
     // «Мои ставки» и «Избранное» — разделы личного кабинета (вход — кнопка справа вверху)

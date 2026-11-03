@@ -488,3 +488,11 @@ body:has(#who) .tabs .in-cab { display: none; }
   .mk-row.mk-3 { grid-template-columns: minmax(0, 1fr) 110px 54px; }
   .mk-head { font-size: 10px; }
 }
+
+/* кабинет и админка: без колонки фильтров — контент от левого края */
+@media (min-width: 901px) { .layout.no-filters { grid-template-columns: 1fr; } .layout.no-filters > .filters { display: none; } }
+/* итоги: фильтр «Все / Выигранные / Проигранные» — одна аккуратная группа */
+.res-filter { display: inline-flex; gap: 4px; padding: 4px; margin: 14px 0 4px; background: var(--surface-2); border-radius: 999px; }
+.res-filter .chip { border: 0; background: none; padding: 9px 18px; border-radius: 999px; font-size: 14px; font-weight: 500; color: var(--muted); cursor: pointer; }
+.res-filter .chip.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.res-filter .chip small { margin-left: 6px; font-size: 12px; color: var(--muted); }

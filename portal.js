@@ -818,7 +818,7 @@
     const won = res.filter(r => r.winner_partner_id), lost = res.filter(r => !r.winner_partner_id);
     const list = RES_FILTER === 'won' ? won : RES_FILTER === 'lost' ? lost : res;
     const chip = (k, label, n) => `<button class="chip ${RES_FILTER === k ? 'on' : ''}" data-rf="${k}">${label}<small>${n}</small></button>`;
-    body.innerHTML = `<div class="adm-bar">${chip('all', 'Все', res.length)}${chip('won', '🏆 Выигранные', won.length)}${chip('lost', 'Проигранные', lost.length)}</div>
+    body.innerHTML = `<div class="res-filter">${chip('all', 'Все', res.length)}${chip('won', '🏆 Выигранные', won.length)}${chip('lost', 'Проигранные', lost.length)}</div>
       <div class="adm-bar"><button class="btn primary" id="invBtn" disabled>Сформировать инвойс</button>
         <span class="hint" id="invHint">Отметьте машины одного покупателя — PDF и Excel придут вам в Telegram.</span></div>
       <table class="adm-bids"><tr><th></th><th>Дата</th><th>Авто</th><th>Лот</th><th>VIN</th><th>Победитель</th><th>Ставка партнёра</th><th>Куплено по факту</th><th>Комиссия · сервис · фрахт</th><th>Итого партнёру</th><th>Заметка</th><th>Инвойс на машину</th></tr>
