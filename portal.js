@@ -796,7 +796,7 @@
   const engineOf = f => !f.cc ? '' : f.scenario === 'ru' ? `${f.cc} cc${f.ps ? ` / ${f.ps} PS` : ''}` : (+f.cc).toLocaleString('en-US');
   function admDocs(body) {
     DOC ??= docDefaults('kg');
-    const f = DOC, kg = f.scenario === 'kg';
+    const f = DOC, kg = f.scenario === 'kg', only = f.scenario === 'kgonly', kgl = kg || only;   // kgonly — только инвойс на киргиза
     if (!f.inv_no) docNumbers(f);
     const v = k => esc(MONEY.has(k) ? grp(f[k]) : (f[k] ?? ''));
     const inp = (k, label, o = {}) => `<label class="${o.wide ? 'dw' : ''}">${label}<input name="${k}" value="${v(k)}"${o.type ? ` type="${o.type}"` : ''}${o.ph ? ` placeholder="${esc(o.ph)}"` : ''}></label>`;
@@ -807,18 +807,19 @@
     body.innerHTML = `<form class="doc-form" autocomplete="off">
       <div class="res-filter">
         <button type="button" class="chip ${kg ? '' : 'on'}" data-sc="ru">🇷🇺 РФ напрямую — ИП</button>
-        <button type="button" class="chip ${kg ? 'on' : ''}" data-sc="kg">🇰🇬 Через Бишкек — ЛТД</button></div>
-      <p class="hint">${kg ? 'Формальные инвойс и ДКП от ЛТД на россиянина (Владивосток) + инвойс для таможни от ЛТД на киргиза (FOB INCHEON, CONTAINER).' : 'Инвойс и ДКП от ИП на россиянина.'}
+        <button type="button" class="chip ${kg ? 'on' : ''}" data-sc="kg">🇰🇬 Через Бишкек — ЛТД</button>
+        <button type="button" class="chip ${only ? 'on' : ''}" data-sc="kgonly">🇰🇬 Только Бишкек</button></div>
+      <p class="hint">${kg ? 'Формальные инвойс и ДКП от ЛТД на россиянина (Владивосток) + инвойс для таможни от ЛТД на киргиза (FOB INCHEON, CONTAINER).' : only ? 'Только инвойс от ЛТД на киргиза (INCHEON → BISHKEK, CONTAINER, FOB INCHEON) — без россиянина и ДКП.' : 'Инвойс и ДКП от ИП на россиянина.'}
         Все суммы — в долларах по курсу. Загрузите фото — поля заполнятся сами; разделы раскрываются по клику, если нужно что-то поправить.</p>
-      <div class="doc-ups">${up('reg', '📄 Техпаспорт (자동차등록증)')}${up('pass_ru', '🇷🇺 Паспорт РФ: разворот с фото + прописка', true)}${kg ? up('id_kg', '🇰🇬 ID-карта киргиза', true) : ''}</div>
+      <div class="doc-ups">${up('reg', '📄 Техпаспорт (자동차등록증)')}${only ? '' : up('pass_ru', '🇷🇺 Паспорт РФ: разворот с фото + прописка', true)}${kgl ? up('id_kg', '🇰🇬 ID-карта киргиза', true) : ''}</div>
       <div class="hint" id="docMsg"></div>
       <div class="doc-main">
         <div class="doc-grid">${inp('mfg_date', 'Дата производства', { ph: '2023-05-12' })}</div>
-        <h3>Суммы</h3><div class="doc-grid">
+        <h3>Суммы</h3><div class="doc-grid">${only ? inp('kg_usd', 'Сумма инвойса, $') : `
           ${inp('rate', 'Курс, ₩ за $')}${inp('price_krw', 'Цена машины, ₩')}${kg ? '' : inp('svc_total_krw', 'Сервис вместе с фрахтом, ₩', { ph: '1 300 000' })}${inp('freight_krw', kg ? 'Фрахт, ₩' : 'Фрахт, ₩ (авто 800 000)')}${inp('service_krw', kg ? 'Сервис, ₩' : 'Сервис, ₩ (авто: остаток)')}
           ${inp('price_usd', 'Цена машины, $')}${inp('freight_usd', 'Фрахт, $')}${inp('service_usd', 'Сервис, $')}
-          <label>Итого (инвойс и ДКП), $<input id="docTotal" disabled></label>${kg ? inp('kg_usd', 'Сумма для таможни, $') : ''}</div>
-        ${kg ? `<h3>Адрес киргиза</h3><div class="doc-grid">
+          <label>Итого (инвойс и ДКП), $<input id="docTotal" disabled></label>${kg ? inp('kg_usd', 'Сумма для таможни, $') : ''}`}</div>
+        ${kgl ? `<h3>Адрес киргиза</h3><div class="doc-grid">
           <label class="dw">Прописка (по-русски, как присылаете)<span class="doc-row"><input name="kg_addr_src" value="${v('kg_addr_src')}" placeholder="Чуйская область, г. Токмок, Вальцовая 31"><button type="button" class="btn" id="kgAddr">в латиницу</button></span></label>
           ${inp('kg_addr', 'Адрес латиницей (инвойс)', { wide: true })}</div>` : ''}
       </div>
@@ -827,26 +828,26 @@
         ${inp('car_name', 'Марка и модель (EN)', { ph: 'CHEVROLET TRAILBLAZER 1.35 TURBO FWD' })}
         ${inp('desc', 'Описание (FULL DESCRIPTION) — собирается само, можно править', { wide: true })}
         ${inp('cbm', 'CBM')}${inp('weight', 'Вес, кг')}${inp('fuel', 'Топливо')}${inp('cc', 'Объём, cc')}${inp('engine', 'ENGINE, CC (как в инвойсе)')}${inp('hs', 'HS-код')}`)}
-      ${sec('buyer', 'Покупатель (паспорт РФ)', docSum.buyer(f), `
+      ${only ? '' : sec('buyer', 'Покупатель (паспорт РФ)', docSum.buyer(f), `
         ${inp('ru_name', 'ФИО по-русски (ДКП)')}${inp('lat_name', 'ФИО латиницей (инвойс)')}${inp('passport', 'Паспорт: серия и номер')}
         ${inp('issued_by', 'Кем выдан', { wide: true })}${inp('issue_date', 'Дата выдачи')}${inp('code', 'Код подразделения')}
         ${inp('addr_ru', 'Адрес по-русски (ДКП)', { wide: true })}${inp('addr_lat', 'Адрес латиницей (инвойс)', { wide: true })}`)}
-      ${sec('inv', `Инвойс ${kg ? 'ЛТД (формальный)' : 'ИП'}`, docSum.inv(f), `
+      ${only ? '' : sec('inv', `Инвойс ${kg ? 'ЛТД (формальный)' : 'ИП'}`, docSum.inv(f), `
         ${inp('date', 'Дата', { type: 'date' })}${inp('inv_no', '№ инвойса')}${inp('port', 'Порт погрузки')}${inp('dest', 'Место доставки')}${inp('ship', 'Тип отправления')}${inp('terms', 'Условия поставки')}`)}
-      ${sec('dkp', 'ДКП', docSum.dkp(f), `
+      ${only ? '' : sec('dkp', 'ДКП', docSum.dkp(f), `
         ${inp('dkp_city', 'Город договора')}${inp('dkp_date', 'Дата прописью', { ph: 'как у инвойса' })}${inp('dkp_terms', 'Условия (CFR)')}${inp('dkp_place', 'Порт для условий')}${inp('dkp_days', 'Срок поставки, дней')}${inp('dkp_freight_city', 'Фрахт до')}`)}
-      ${kg ? sec('kg', 'Инвойс для таможни (киргиз)', docSum.kg(f), `
+      ${kgl ? sec('kg', only ? 'Инвойс на киргиза' : 'Инвойс для таможни (киргиз)', docSum.kg(f), `
         ${inp('kg_name', 'ФИО латиницей + № документа', { wide: true })}
         ${inp('kg_date', 'Дата', { type: 'date' })}${inp('kg_inv_no', '№ инвойса')}${inp('kg_port', 'Порт погрузки')}${inp('kg_dest', 'Место доставки')}${inp('kg_ship', 'Тип отправления')}${inp('kg_terms', 'Условия поставки')}`) : ''}
       <div class="adm-bar doc-actions"><button class="btn primary" id="docMake">Сформировать документы</button><button type="button" class="btn" id="docReset">Очистить</button>
         <span class="doc-state" id="docState" hidden></span></div>
-      <p class="hint">${kg ? 'Придут в Telegram двумя комплектами: 👤 «для клиента» — инвойс (PDF + Excel) и ДКП (PDF + Word); 🛃 «для таможни» — инвойс (PDF + Excel).' : 'Придут вам в Telegram: инвойс (PDF + Excel) и ДКП (PDF + Word).'}</p></form>`;
+      <p class="hint">${only ? 'Придёт вам в Telegram: инвойс на киргиза (PDF + Excel).' : kg ? 'Придут в Telegram двумя комплектами: 👤 «для клиента» — инвойс (PDF + Excel) и ДКП (PDF + Word); 🛃 «для таможни» — инвойс (PDF + Excel).' : 'Придут вам в Telegram: инвойс (PDF + Excel) и ДКП (PDF + Word).'}</p></form>`;
     body.querySelectorAll('details.doc-sec').forEach(d => d.ontoggle = () => { d.open ? DOC_OPEN.add(d.dataset.sec) : DOC_OPEN.delete(d.dataset.sec); });
     const refreshSums = () => body.querySelectorAll('[data-sum]').forEach(s => { s.textContent = docSum[s.dataset.sum](f); });
     const form = body.querySelector('form'), msg = $('#docMsg');
     const total = () => {
       const t = ['price_usd', 'freight_usd', 'service_usd'].reduce((a, k) => a + (+String(f[k] || 0).replace(/\s/g, '') || 0), 0);
-      $('#docTotal').value = t ? t.toLocaleString('ru-RU') : '';
+      if ($('#docTotal')) $('#docTotal').value = t ? t.toLocaleString('ru-RU') : '';
     };
     const fromKrw = k => {
       const r = +f.rate || 0, w = +String(f[k + '_krw'] || '').replace(/\D/g, '');
@@ -874,7 +875,7 @@
       if (k === 'ru_name') { f.lat_name = lat(f.ru_name); form.lat_name.value = f.lat_name; }
       if (k === 'addr_ru') { f.addr_lat = lat(f.addr_ru); form.addr_lat.value = f.addr_lat; }
       if (['car_name', 'mfg_date', 'fuel', 'cc', 'vin'].includes(k)) { f.desc = descBuild(f); form.desc.value = f.desc; }
-      if (['date', 'plate', 'vin', 'kg_date'].includes(k)) { docNumbers(f); form.inv_no.value = f.inv_no; if (form.kg_inv_no) form.kg_inv_no.value = f.kg_inv_no; }
+      if (['date', 'plate', 'vin', 'kg_date'].includes(k)) { docNumbers(f); if (form.inv_no) form.inv_no.value = f.inv_no; if (form.kg_inv_no) form.kg_inv_no.value = f.kg_inv_no; }
       total(); refreshSums();
     };
     total();
