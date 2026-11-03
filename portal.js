@@ -892,7 +892,8 @@
           const d = r.doc;
           f.kg_name = [d.surname_lat, d.name_lat, lat(d.patronymic_ru)].filter(Boolean).join(' ').toUpperCase()
             + (d.doc_no ? ' ' + String(d.doc_no).replace(/^\D+/, '') : '');
-          note = `✅ ID-карта: ${f.kg_name}`;
+          if (d.address) { f.kg_addr_src = d.address; if (d.address_fmt) f.kg_addr = lat(d.address_fmt); }   // электронная карта — адрес уже есть
+          note = `✅ ID-карта: ${f.kg_name}${d.address ? (d.address_fmt ? ' · адрес взят с карты' : ' · адрес найден — нажмите «в латиницу»') : ' · впишите прописку'}`;
         }
         admDocs(body); $('#docMsg').textContent = note;
       } catch (e) { msg.textContent = '⚠️ ' + e.message; }
