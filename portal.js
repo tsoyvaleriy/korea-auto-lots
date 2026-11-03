@@ -512,8 +512,8 @@
       <div class="adm-tabs">
         <button data-adm="bids" class="${ADM_TAB === 'bids' ? 'on' : ''}">Ставки по лотам</button>
         <button data-adm="partners" class="${ADM_TAB === 'partners' ? 'on' : ''}">Партнёры</button>
-        <button data-adm="results" class="${ADM_TAB === 'results' ? 'on' : ''}">Итоги</button>${OWNER() ? `
-        <button data-adm="docs" class="${ADM_TAB === 'docs' ? 'on' : ''}">Документы</button>` : ''}</div><div id="admBody"><div class="empty">Загружаю…</div></div>`;
+        <button data-adm="results" class="${ADM_TAB === 'results' ? 'on' : ''}">Итоги</button>
+        <button data-adm="docs" class="${ADM_TAB === 'docs' ? 'on' : ''}">Документы</button></div><div id="admBody"><div class="empty">Загружаю…</div></div>`;
     box.querySelector('.adm-tabs').onclick = e => { const b = e.target.closest('[data-adm]'); if (b) { ADM_TAB = b.dataset.adm; renderAdmin(box, count); } };
     const body = $('#admBody');
     try {
