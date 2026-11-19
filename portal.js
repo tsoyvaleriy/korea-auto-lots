@@ -771,7 +771,10 @@
     inv: f => [f.inv_no, f.port && f.dest && `${f.port} → ${f.dest}`, f.ship].filter(Boolean).join(' · '),
     dkp: f => [`${f.dkp_terms || 'CFR'} ${f.dkp_place || ''}`.trim(), f.dkp_days && f.dkp_days + ' дней', f.dkp_freight_city].filter(Boolean).join(' · '),
     kg: f => [f.kg_name, f.kg_inv_no, f.kg_terms].filter(Boolean).join(' · ') || 'загрузите ID-карту',
+    prt: f => [f.p_name, f.p_dest].filter(Boolean).join(' · ') || 'выберите партнёра',
   };
+  let DOC_PARTNERS = null;                                   // свои партнёры (у менеджера — только его) с реквизитами для инвойса
+  const PRT_INV = { port: 'INCHEON, KOREA', ship: 'CONTAINER', terms: 'FOB INCHEON' };   // как в инвойсах на машины с сайта
   const docDefaults = sc => ({
     scenario: sc, firm: sc === 'ru' ? 'ip' : 'ltd', date: new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10), rate: Math.round(RATE),
     dkp_terms: 'CFR', dkp_place: 'DONGHAE', dkp_days: 180, dkp_city: 'г. Кимпхо, Республика Корея', dkp_freight_city: 'г. Владивосток',
@@ -796,9 +799,25 @@
     return [name, fuel, l, f.mfg_date ? `(${f.mfg_date})` : '', `VIN CODE: ${f.vin || ''}`].filter(Boolean).join(' ').replace(/\s+/g, ' ');
   };
   const engineOf = f => !f.cc ? '' : (f.firm || (f.scenario === 'ru' ? 'ip' : 'ltd')) === 'ip' ? `${f.cc} cc${f.ps ? ` / ${f.ps} PS` : ''}` : (+f.cc).toLocaleString('en-US');
+  function pickPartner(f, p) {
+    Object.assign(f, p ? { p_id: p.id, p_label: p.display_name || '', p_name: p.inv_name || p.display_name || '', p_addr: p.inv_address || '', p_dest: p.inv_dest || '' }
+      : { p_id: '', p_label: '', p_name: '', p_addr: '', p_dest: '' });
+  }
   function admDocs(body) {
     DOC ??= docDefaults('kg');
     const f = DOC, kg = f.scenario === 'kg', only = f.scenario === 'kgonly', kgl = kg || only;   // kgonly — только инвойс на киргиза
+    const prt = f.scenario === 'partner';                     // на компанию партнёра (напр. Дмитрий — ОАЭ): только инвойс
+    if (prt && !DOC_PARTNERS) {
+      DOC_PARTNERS = 'loading';
+      adminCall({ action: 'list_partners' }).then(r => {
+        DOC_PARTNERS = (r.partners || []).filter(p => p.role === 'partner' && p.manager_id === ME.id)
+          .sort((a, b) => (!!b.inv_name - !!a.inv_name) || String(a.display_name).localeCompare(b.display_name));
+        const withInv = DOC_PARTNERS.filter(p => p.inv_name);
+        if (!f.p_id && withInv.length === 1) pickPartner(f, withInv[0]);
+        if (DOC === f && f.scenario === 'partner' && body.isConnected) admDocs(body);
+      }).catch(e => { DOC_PARTNERS = null; toast('Партнёры: ' + e.message); });
+    }
+    const plist = Array.isArray(DOC_PARTNERS) ? DOC_PARTNERS : null;
     f.firm ??= f.scenario === 'ru' ? 'ip' : 'ltd';
     const firmName = f.firm === 'ip' ? 'ИП' : 'ЛТД';
     if (!f.inv_no) docNumbers(f);
@@ -811,19 +830,23 @@
         <summary><b>${title}</b><span class="doc-sum" data-sum="${id}">${esc(sum)}</span></summary><div class="doc-grid">${inner}</div></details>`;
     body.innerHTML = `<form class="doc-form" autocomplete="off">
       <div class="res-filter">
-        <button type="button" class="chip ${kg ? '' : 'on'}" data-sc="ru">🇷🇺 РФ напрямую</button>
+        <button type="button" class="chip ${f.scenario === 'ru' ? 'on' : ''}" data-sc="ru">🇷🇺 РФ напрямую</button>
         <button type="button" class="chip ${kg ? 'on' : ''}" data-sc="kg">🇰🇬 Через Бишкек</button>
-        <button type="button" class="chip ${only ? 'on' : ''}" data-sc="kgonly">🇰🇬 Только Бишкек</button></div>
+        <button type="button" class="chip ${only ? 'on' : ''}" data-sc="kgonly">🇰🇬 Только Бишкек</button>
+        <button type="button" class="chip ${prt ? 'on' : ''}" data-sc="partner">🤝 Партнёр</button></div>
       <div class="res-filter doc-firm"><span class="hint">Компания:</span>
         <button type="button" class="chip ${f.firm === 'ip' ? 'on' : ''}" data-firm="ip">ИП — YARAKIRI TRADE</button>
         <button type="button" class="chip ${f.firm === 'ltd' ? 'on' : ''}" data-firm="ltd">ЛТД — YARAKIRI TRADE Ltd Co.</button></div>
-      <p class="hint">${kg ? `Формальные инвойс и ДКП от ${firmName} на россиянина (Владивосток) + инвойс для таможни от ${firmName} на киргиза (FOB INCHEON, CONTAINER).` : only ? `Только инвойс от ${firmName} на киргиза (INCHEON → BISHKEK, CONTAINER, FOB INCHEON) — без россиянина и ДКП.` : `Инвойс и ДКП от ${firmName} на россиянина.`}
+      <p class="hint">${prt ? `Инвойс от ${firmName} на компанию вашего партнёра (${PRT_INV.port}, ${PRT_INV.ship}, ${PRT_INV.terms}) — без ДКП. Загрузите техпаспорт, впишите цену и дату производства.` : kg ? `Формальные инвойс и ДКП от ${firmName} на россиянина (Владивосток) + инвойс для таможни от ${firmName} на киргиза (FOB INCHEON, CONTAINER).` : only ? `Только инвойс от ${firmName} на киргиза (INCHEON → BISHKEK, CONTAINER, FOB INCHEON) — без россиянина и ДКП.` : `Инвойс и ДКП от ${firmName} на россиянина.`}
         Все суммы — в долларах по курсу. Загрузите фото — поля заполнятся сами; разделы раскрываются по клику, если нужно что-то поправить.</p>
-      <div class="doc-ups">${up('reg', '📄 Техпаспорт (자동차등록증)')}${only ? '' : up('pass_ru', '🇷🇺 Паспорт РФ: разворот с фото + прописка', true)}${kgl ? up('id_kg', '🇰🇬 ID-карта киргиза', true) : ''}</div>
+      <div class="doc-ups">${up('reg', '📄 Техпаспорт (자동차등록증)')}${only || prt ? '' : up('pass_ru', '🇷🇺 Паспорт РФ: разворот с фото + прописка', true)}${kgl ? up('id_kg', '🇰🇬 ID-карта киргиза', true) : ''}</div>
       <div class="hint" id="docMsg"></div>
       <div class="doc-main">
+        ${prt ? `<div class="doc-grid"><label class="dw">Партнёр<select id="docPartner">${plist ? `<option value="">— выберите —</option>` + plist.map(p => `<option value="${p.id}"${p.id === f.p_id ? ' selected' : ''}>${esc(p.display_name)}${p.inv_name ? ' — ' + esc(p.inv_name) : ' (нет реквизитов — впишите ниже)'}</option>`).join('') : '<option>загружаю…</option>'}</select></label></div>` : ''}
         <div class="doc-grid">${inp('mfg_date', 'Дата производства', { ph: '2023-05-12' })}</div>
-        <h3>Суммы</h3><div class="doc-grid">${only ? inp('kg_usd', 'Сумма инвойса, $') : `
+        <h3>Суммы</h3><div class="doc-grid">${only ? inp('kg_usd', 'Сумма инвойса, $') : prt ? `
+          ${inp('rate', 'Курс, ₩ за $')}${inp('price_krw', 'Цена машины, ₩')}${inp('price_usd', 'Цена машины, $')}
+          <label>Итого в инвойсе, $<input id="docTotal" disabled></label>` : `
           ${inp('rate', 'Курс, ₩ за $')}${inp('price_krw', 'Цена машины, ₩')}${inp('svc_total_krw', 'Сервис, ₩ (вместе с фрахтом 800 000)', { ph: '1 300 000' })}
           ${inp('price_usd', 'Цена машины, $')}<label>В инвойсе: фрахт + сервис, $<input id="docSvc" disabled></label>
           <label>Итого (инвойс и ДКП), $<input id="docTotal" disabled></label>${kg ? inp('kg_usd', 'Сумма для таможни, $') : ''}`}</div>
@@ -836,20 +859,22 @@
         ${inp('car_name', 'Марка и модель (EN)', { ph: 'CHEVROLET TRAILBLAZER 1.35 TURBO FWD' })}
         ${inp('desc', 'Описание (FULL DESCRIPTION) — собирается само, можно править', { wide: true })}
         ${inp('cbm', 'CBM')}${inp('weight', 'Вес, кг')}${inp('fuel', 'Топливо')}${inp('cc', 'Объём, cc')}${inp('engine', 'ENGINE, CC (как в инвойсе)')}${inp('hs', 'HS-код')}`)}
-      ${only ? '' : sec('buyer', 'Покупатель (паспорт РФ)', docSum.buyer(f), `
+      ${prt ? sec('prt', 'Покупатель — компания партнёра', docSum.prt(f), `
+        ${inp('p_name', 'Компания (как в инвойсе)', { wide: true })}${inp('p_addr', 'Адрес', { wide: true })}${inp('p_dest', 'Место доставки')}`) : ''}
+      ${only || prt ? '' : sec('buyer', 'Покупатель (паспорт РФ)', docSum.buyer(f), `
         ${inp('ru_name', 'ФИО по-русски (ДКП)')}${inp('lat_name', 'ФИО латиницей (инвойс)')}${inp('passport', 'Паспорт: серия и номер')}
         ${inp('issued_by', 'Кем выдан', { wide: true })}${inp('issue_date', 'Дата выдачи')}${inp('code', 'Код подразделения')}
         ${inp('addr_ru', 'Адрес по-русски (ДКП)', { wide: true })}${inp('addr_lat', 'Адрес латиницей (инвойс)', { wide: true })}`)}
       ${only ? '' : sec('inv', `Инвойс ${firmName}${kg ? ' (формальный)' : ''}`, docSum.inv(f), `
-        ${inp('date', 'Дата', { type: 'date' })}${inp('inv_no', '№ инвойса')}${inp('port', 'Порт погрузки')}${inp('dest', 'Место доставки')}${inp('ship', 'Тип отправления')}${inp('terms', 'Условия поставки')}`)}
-      ${only ? '' : sec('dkp', 'ДКП', docSum.dkp(f), `
+        ${inp('date', 'Дата', { type: 'date' })}${inp('inv_no', '№ инвойса')}${inp('port', 'Порт погрузки')}${prt ? '' : inp('dest', 'Место доставки')}${inp('ship', 'Тип отправления')}${inp('terms', 'Условия поставки')}`)}
+      ${only || prt ? '' : sec('dkp', 'ДКП', docSum.dkp(f), `
         ${inp('dkp_city', 'Город договора')}${inp('dkp_date', 'Дата прописью', { ph: 'как у инвойса' })}${inp('dkp_terms', 'Условия (CFR)')}${inp('dkp_place', 'Порт для условий')}${inp('dkp_days', 'Срок поставки, дней')}${inp('dkp_freight_city', 'Фрахт до')}`)}
       ${kgl ? sec('kg', only ? 'Инвойс на киргиза' : 'Инвойс для таможни (киргиз)', docSum.kg(f), `
         ${inp('kg_name', 'ФИО латиницей + № документа', { wide: true })}
         ${inp('kg_date', 'Дата', { type: 'date' })}${inp('kg_inv_no', '№ инвойса')}${inp('kg_port', 'Порт погрузки')}${inp('kg_dest', 'Место доставки')}${inp('kg_ship', 'Тип отправления')}${inp('kg_terms', 'Условия поставки')}`) : ''}
       <div class="adm-bar doc-actions"><button class="btn primary" id="docMake">Сформировать документы</button><button type="button" class="btn" id="docReset">Очистить</button>
         <span class="doc-state" id="docState" hidden></span></div>
-      <p class="hint">${only ? 'Придёт вам в Telegram: инвойс на киргиза (PDF + Excel).' : kg ? 'Придут в Telegram двумя комплектами: 👤 «для клиента» — инвойс (PDF + Excel) и ДКП (PDF + Word); 🛃 «для таможни» — инвойс (PDF + Excel).' : 'Придут вам в Telegram: инвойс (PDF + Excel) и ДКП (PDF + Word).'}</p></form>`;
+      <p class="hint">${prt ? 'Придёт вам в Telegram: 🤝 инвойс для партнёра (PDF + Excel).' : only ? 'Придёт вам в Telegram: инвойс на киргиза (PDF + Excel).' : kg ? 'Придут в Telegram двумя комплектами: 👤 «для клиента» — инвойс (PDF + Excel) и ДКП (PDF + Word); 🛃 «для таможни» — инвойс (PDF + Excel).' : 'Придут вам в Telegram: инвойс (PDF + Excel) и ДКП (PDF + Word).'}</p></form>`;
     body.querySelectorAll('details.doc-sec').forEach(d => d.ontoggle = () => { d.open ? DOC_OPEN.add(d.dataset.sec) : DOC_OPEN.delete(d.dataset.sec); });
     const refreshSums = () => body.querySelectorAll('[data-sum]').forEach(s => { s.textContent = docSum[s.dataset.sum](f); });
     const form = body.querySelector('form'), msg = $('#docMsg');
@@ -893,7 +918,14 @@
       total(); refreshSums();
     };
     total(); svcShow();
-    body.querySelectorAll('[data-sc]').forEach(b => b.onclick = () => { f.scenario = b.dataset.sc; f.firm = f.scenario === 'ru' ? 'ip' : 'ltd'; docNumbers(f); f.engine = engineOf(f); admDocs(body); });
+    body.querySelectorAll('[data-sc]').forEach(b => b.onclick = () => {
+      const was = f.scenario; f.scenario = b.dataset.sc; f.firm = f.scenario === 'ru' ? 'ip' : 'ltd';
+      // партнёру — только цена машины (без фрахта и сервиса), условия как в инвойсах с сайта
+      if (f.scenario === 'partner') Object.assign(f, PRT_INV, { svc_total_krw: '', freight_krw: 0, service_krw: 0, freight_usd: 0, service_usd: 0 });
+      else if (was === 'partner') { const d = docDefaults(f.scenario); Object.assign(f, { port: d.port, ship: d.ship, terms: d.terms }); }
+      docNumbers(f); f.engine = engineOf(f); admDocs(body);
+    });
+    if ($('#docPartner')) $('#docPartner').onchange = e => { pickPartner(f, (plist || []).find(x => x.id === e.target.value)); admDocs(body); };
     body.querySelectorAll('[data-firm]').forEach(b => b.onclick = () => { f.firm = b.dataset.firm; docNumbers(f); f.engine = engineOf(f); admDocs(body); });
     $('#docReset').onclick = () => { if (confirm('Очистить все поля?')) { DOC = docDefaults(f.scenario); DOC_UP = {}; admDocs(body); } };
     body.querySelectorAll('[data-read]').forEach(el => el.onchange = async () => {
