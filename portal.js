@@ -1226,9 +1226,26 @@
           toast(j.queued ? `Архив готовится — придёт в Telegram через минуту (${j.photos} фото)` : `Архив «${j.name}» отправлен в Telegram (${j.photos} фото)`);
         } else {
           const blob = await r.blob();
+          const fname = decodeURIComponent(r.headers.get('x-filename') || 'photos.zip');
+          // сайт с главного экрана телефона (особенно iPhone) обычные загрузки не сохраняет — отдаём файл через «Поделиться» → «Сохранить в Файлы»
+          const app = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+          const file = new File([blob], fname, { type: 'application/zip' });
+          if (app && navigator.canShare?.({ files: [file] })) {
+            try { await navigator.share({ files: [file] }); }
+            catch (e) {
+              if (e.name === 'NotAllowedError') {   // архив собирался долго — телефон просит ещё одно нажатие
+                const prev = btn.onclick;
+                btn.disabled = false; btn.textContent = '💾 Сохранить архив';
+                btn.onclick = async () => { btn.onclick = prev; btn.textContent = label; try { await navigator.share({ files: [file] }); } catch {} };
+                return;
+              }
+              if (e.name !== 'AbortError') throw e;
+            }
+            btn.disabled = false; btn.textContent = label; return;
+          }
           const a = document.createElement('a');
           a.href = URL.createObjectURL(blob);
-          a.download = decodeURIComponent(r.headers.get('x-filename') || 'photos.zip');
+          a.download = fname;
           document.body.appendChild(a); a.click(); a.remove();
           setTimeout(() => URL.revokeObjectURL(a.href), 5000);
         }
